@@ -89,9 +89,10 @@ Após clonar o repositório, siga as instruções de instalação:
 ## Recursos Adicionais
 
 - Documentação oficial do Redmine: https://www.redmine.org/
-- Guia de instalação: `doc/INSTALL`
-- Guia de contribuição: `CONTRIBUTING.md`
+- Guia de instalação: doc/INSTALL
+- Guia de atualização: doc/UPGRADING
+- Guia de execução de testes: doc/RUNNING_TESTS
 
 ## Observação Importante
 
-Este é um fork do projeto Redmine oficial. Se você deseja contribuir com o projeto principal do Redmine, visite https://www.redmine.org/ e siga as diretrizes de contribuição oficiais.
+Este é um fork do projeto Redmine oficial. Se você deseja contribuir com o projeto principal do Redmine, visite https://www.redmine.org/ e siga as diretrizes de contribuição oficiais. Para este fork específico, entre em contato com o mantenedor do repositório.
