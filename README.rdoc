@@ -1,0 +1,10 @@
+= Redmine
+
+Redmine is a flexible project management web application written using Ruby on Rails framework.
+
+More details can be found in the doc directory or on the official website https://www.redmine.org
+
+== How to Fork and Clone This Repository
+
+* English: See doc/FORK_AND_CLONE.md
+* Português (Brasil): Veja doc/FORK_AND_CLONE_pt-BR.md

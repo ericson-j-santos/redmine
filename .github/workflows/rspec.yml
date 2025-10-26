@@ -1,0 +1,74 @@
+name: RSpec Tests - CI/CD
+
+on:
+  push:
+    branches: [ main, develop, fix/* ]
+    paths:
+      - 'app/**'
+      - 'spec/**'
+      - 'Gemfile'
+      - 'Gemfile.lock'
+      - '.github/workflows/rspec.yml'
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  rspec:
+    name: RSpec Tests
+    runs-on: ubuntu-latest
+
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: redmine_test
+        options: >-
+          --health-cmd="mysqladmin ping"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=3
+        ports:
+          - 3306:3306
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Ruby and gems
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.1.7'
+          bundler-cache: true
+
+      - name: Create test database
+        env:
+          RAILS_ENV: test
+          DATABASE_URL: mysql2://root:root@127.0.0.1:3306/redmine_test
+        run: |
+          bundle exec rails db:create db:schema:load
+
+      - name: Run RSpec tests
+        env:
+          RAILS_ENV: test
+          DATABASE_URL: mysql2://root:root@127.0.0.1:3306/redmine_test
+        run: |
+          bundle exec rspec --format progress
+
+      - name: Generate coverage report
+        if: always()
+        env:
+          RAILS_ENV: test
+          DATABASE_URL: mysql2://root:root@127.0.0.1:3306/redmine_test
+          COVERAGE: true
+        run: |
+          bundle exec rspec
+
+      - name: Upload coverage reports
+        if: always()
+        uses: codecov/codecov-action@v3
+        with:
+          files: ./coverage/.resultset.json
+          flags: rspec
+          name: rspec-coverage
+          fail_ci_if_error: false
