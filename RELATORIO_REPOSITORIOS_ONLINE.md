@@ -6,21 +6,23 @@
 
 ## 🔗 Remotes Configurados
 
-| Nome | URL | Status |
-|------|-----|--------|
-| **origin** | https://github.com/ericson-j-santos/redmine.git | ✅ Conectado |
-| **upstream** | https://github.com/redmine/redmine.git | ✅ Conectado |
+| Nome         | URL                                             | Status       |
+| ------------ | ----------------------------------------------- | ------------ |
+| **origin**   | https://github.com/ericson-j-santos/redmine.git | ✅ Conectado |
+| **upstream** | https://github.com/redmine/redmine.git          | ✅ Conectado |
 
 ---
 
 ## 📡 Status do Fetch
 
 ### ✅ Origin (SEU REPOSITÓRIO)
+
 - **Branch encontrada:** `master`
 - **Status:** Remoto está acessível e atualizado
 - **Último commit remoto:** Desconhecido (ainda não sincronizado)
 
 ### ✅ Upstream (REDMINE ORIGINAL)
+
 - **Branches encontradas:** 48 branches
 - **Principais:**
   - `master` (desenvolvimento principal)
@@ -34,6 +36,7 @@
 ## ⚠️ Diferenças Detectadas
 
 ### Local vs Origin/Master
+
 ```
 2.241 arquivos com mudanças
 - 296.279 linhas removidas (arquivos deletados no local)
@@ -45,12 +48,14 @@
 ### Recomendações:
 
 1. **Se quer sincronizar com o remote:**
+
    ```bash
    git pull origin master
    # Isso vai trazer os 296k+ linhas do repositório original
    ```
 
 2. **Se quer manter APENAS seus specs RSpec (RECOMENDADO):**
+
    ```bash
    git push -u origin master
    # Vai enviar apenas seus 2 commits (spec + report)
@@ -69,7 +74,8 @@
 ## 📌 Status Atual
 
 **Branch local:** master  
-**Commits locais:** 2  
+**Commits locais:** 2
+
 - `28dadb8` - docs: Add consolidation report
 - `5472421` - Initial commit: Add all project files with RSpec specs
 
