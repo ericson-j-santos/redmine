@@ -414,9 +414,9 @@ class IssueQuery < Query
       preload(:priority).
       includes(([:status, :project] + (options[:include] || [])).uniq).
       where(options[:conditions]).
+      group("#{Issue.table_name}.id").
       order(order_option).
       joins(joins_for_order_statement(order_option.join(','))).
-      distinct.
       limit(options[:limit]).
       offset(options[:offset])
 
@@ -466,9 +466,9 @@ class IssueQuery < Query
       includes(([:status, :project] + (options[:include] || [])).uniq).
       references(([:status, :project] + (options[:include] || [])).uniq).
       where(options[:conditions]).
+      group("#{Issue.table_name}.id").
       order(order_option).
       joins(joins_for_order_statement(order_option.join(','))).
-      distinct.
       limit(options[:limit]).
       offset(options[:offset]).
       pluck(:id)
