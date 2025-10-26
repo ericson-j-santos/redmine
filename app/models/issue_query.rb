@@ -416,7 +416,6 @@ class IssueQuery < Query
       where(options[:conditions]).
       order(order_option).
       joins(joins_for_order_statement(order_option.join(','))).
-      distinct.
       limit(options[:limit]).
       offset(options[:offset])
 
@@ -468,7 +467,6 @@ class IssueQuery < Query
       where(options[:conditions]).
       order(order_option).
       joins(joins_for_order_statement(order_option.join(','))).
-      distinct.
       limit(options[:limit]).
       offset(options[:offset]).
       pluck(:id)
