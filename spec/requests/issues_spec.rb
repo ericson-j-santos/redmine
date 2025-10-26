@@ -13,7 +13,7 @@ RSpec.describe 'Issues', type: :request do
         subject: 'Test Issue',
         description: 'Test Description'
       }
-      
+
       issue = Issue.new(issue_attrs)
       expect(issue.subject).to eq('Test Issue')
       expect(issue.project_id).to eq(project.id)
