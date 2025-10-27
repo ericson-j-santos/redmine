@@ -106,6 +106,7 @@ group :development do
   gem 'yard', require: false
   gem 'svg_sprite', require: false
   gem 'bullet'
+  gem 'ruby-lsp', require: false
 end
 
 group :test do
@@ -117,6 +118,8 @@ group :test do
   gem 'puma'
   gem "capybara", ">= 3.39"
   gem 'selenium-webdriver', '>= 4.11.0'
+  # For integration tests with assert_template
+  gem "rails-controller-testing"
   # RuboCop
   gem 'rubocop', '~> 1.76.0', require: false
   gem 'rubocop-performance', '~> 1.26.0', require: false

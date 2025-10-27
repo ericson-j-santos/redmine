@@ -22,7 +22,6 @@ Rails.application.routes.draw do
     controllers :applications => 'oauth2_applications'
   end
 
-  root :to => 'welcome#index'
   root :to => 'welcome#index', :as => 'home'
 
   match 'login', :to => 'account#login', :as => 'signin', :via => [:get, :post]
