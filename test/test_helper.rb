@@ -354,7 +354,10 @@ module Redmine
     # Returns the issues that are displayed in the list in the same order
     def issues_in_list
       ids = css_select('tr.issue td.id').map {|e| e.text.to_i}
-      Issue.where(:id => ids).sort_by {|issue| ids.index(issue.id)}
+      issues = Issue.where(:id => ids).sort_by {|issue| ids.index(issue.id)}
+      Issue.load_visible_spent_hours(issues)
+      Issue.load_visible_total_spent_hours(issues)
+      issues
     end
 
     # Return the columns that are displayed in the issue list

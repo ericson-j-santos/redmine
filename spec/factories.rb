@@ -39,7 +39,7 @@ FactoryBot.define do
     project
     subject { Faker::Lorem.sentence }
     description { Faker::Lorem.paragraph }
-    
+
     after(:build) do |issue|
       # Find or create tracker
       issue.tracker ||= Tracker.first || create(:tracker)
@@ -48,7 +48,7 @@ FactoryBot.define do
       # Find or create priority - should use enumeration type
       issue.priority_id ||= 3 # Normal priority
     end
-    
+
     created_on { Time.current }
     updated_on { Time.current }
 
@@ -65,7 +65,7 @@ FactoryBot.define do
 
   factory :tracker do
     sequence(:name) { |n| "Tracker #{n}" }
-    
+
     after(:build) do |tracker|
       tracker.default_status_id ||= IssueStatus.first&.id || create(:issue_status).id
     end
