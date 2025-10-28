@@ -342,7 +342,7 @@ class SpentHoursModelTest < ActiveSupport::TestCase
   def test_spent_hours_scope_ordering_descending
     TimeEntry.delete_all
 
-    issues = 3.times.map do |i|
+    issues = Array.new(3) do |i|
       issue = Issue.create!(
         project_id: @issue.project_id,
         subject: "Issue #{i}",
@@ -368,7 +368,7 @@ class SpentHoursModelTest < ActiveSupport::TestCase
   def test_spent_hours_scope_ordering_ascending
     TimeEntry.delete_all
 
-    issues = 3.times.map do |i|
+    issues = Array.new(3) do |i|
       issue = Issue.create!(
         project_id: @issue.project_id,
         subject: "Issue #{i}",

@@ -61,7 +61,7 @@ class SpentHoursIntegrationTest < Redmine::IntegrationTest
     get '/issues.json?sort=spent_hours:desc'
     assert_response :success
 
-    json_response = JSON.parse(response.body)
+    json_response = response.parsed_body
     assert json_response.key?('issues'), 'Response should contain issues array'
   end
 
@@ -127,7 +127,7 @@ class SpentHoursIntegrationTest < Redmine::IntegrationTest
     get '/issues.json?sort=spent_hours:desc'
     assert_response :success
 
-    json_response = JSON.parse(response.body)
+    json_response = response.parsed_body
     assert json_response.key?('issues')
   end
 

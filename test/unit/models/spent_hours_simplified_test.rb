@@ -190,7 +190,7 @@ class SpentHoursSimplifiedTest < ActiveSupport::TestCase
     @issue.reload
 
     assert_equal 3.0, @issue.spent_hours
-  end  # Test 10: Spent hours from different dates
+  end
 
   def test_spent_hours_accumulates_over_dates
     TimeEntry.delete_all
