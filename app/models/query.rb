@@ -757,6 +757,8 @@ class Query < ApplicationRecord
   # Add multiple filters using +add_filter+
   def add_filters(fields, operators, values)
     if fields.present? && operators.present?
+      # Ensure fields is an array
+      fields = Array(fields)
       fields.each do |field|
         add_filter(field, operators[field], values && values[field])
       end
@@ -849,6 +851,8 @@ class Query < ApplicationRecord
 
   def column_names=(names)
     if names
+      # Ensure names is an array
+      names = Array(names)
       names = names.select {|n| n.is_a?(Symbol) || n.present?}
       names = names.collect {|n| n.is_a?(Symbol) ? n : n.to_sym}
       if names.delete(:all_inline)

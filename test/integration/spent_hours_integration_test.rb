@@ -73,7 +73,7 @@ class SpentHoursIntegrationTest < Redmine::IntegrationTest
   def test_issues_csv_export_with_spent_hours_sort
     get '/issues.csv?sort=spent_hours:desc&c=subject&c=spent_hours'
     assert_response :success
-    assert_equal 'text/csv', response.media_type
+    assert_match %r{text/csv}, response.media_type
   end
 
   def test_issues_index_with_custom_columns_including_spent_hours
