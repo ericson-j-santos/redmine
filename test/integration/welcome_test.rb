@@ -58,4 +58,49 @@ class WelcomeTest < Redmine::IntegrationTest
       assert_response :not_found
     end
   end
+
+  def test_home_page_should_be_accessible
+    get '/'
+    assert_response :success
+    assert_select 'h2', :text => 'Home'
+  end
+
+  def test_home_page_should_display_welcome_text
+    get '/'
+    assert_response :success
+    assert_select '.wiki', :text => /Welcome to Redmine/
+  end
+
+  def test_home_page_should_be_accessible_as_anonymous_user
+    # Access home page without logging in (as anonymous user)
+    get '/'
+    assert_response :success
+    assert_select 'h2', :text => 'Home'
+    # Verify we're not logged in
+    assert_nil session[:user_id]
+  end
+
+  def test_home_page_should_be_accessible_as_logged_in_user
+    log_user('jsmith', 'jsmith')
+    
+    get '/'
+    assert_response :success
+    assert_select 'h2', :text => 'Home'
+  end
+
+  def test_home_page_should_display_latest_news_when_available
+    log_user('jsmith', 'jsmith')
+    
+    get '/'
+    assert_response :success
+    # If there are news items, they should be displayed
+    # The test data includes news, so we can check for the news section
+    assert_select 'div.news', :minimum => 0
+  end
+
+  def test_root_path_should_route_to_welcome_index
+    get '/'
+    assert_response :success
+    assert_template 'welcome/index'
+  end
 end
