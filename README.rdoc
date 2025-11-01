@@ -4,7 +4,20 @@ Redmine is a flexible project management web application written using Ruby on R
 
 More details can be found in the doc directory or on the official website https://www.redmine.org
 
+== ⚠️ Deployment Notice / Aviso de Implantação
+
+**Important**: If you're seeing a "Page not found" error when accessing this Redmine installation on Vercel, this is because Vercel is not designed to host traditional Ruby on Rails applications.
+
+**Importante**: Se você está vendo o erro "Página não encontrada" ao acessar esta instalação do Redmine no Vercel, isso ocorre porque o Vercel não foi projetado para hospedar aplicações tradicionais Ruby on Rails.
+
+See DEPLOYMENT.md (English) or DEPLOYMENT_pt-BR.md (Português) for recommended hosting platforms and complete deployment instructions.
+
 == How to Fork and Clone This Repository
 
 * English: See doc/FORK_AND_CLONE.md
 * Português (Brasil): Veja doc/FORK_AND_CLONE_pt-BR.md
+
+== Deployment Guide / Guia de Implantação
+
+* English: See DEPLOYMENT.md for instructions on deploying Redmine to production using recommended platforms like Heroku, Railway, Render, or Fly.io.
+* Português (Brasil): Veja DEPLOYMENT_pt-BR.md para instruções sobre como implantar o Redmine em produção usando plataformas recomendadas como Heroku, Railway, Render ou Fly.io.
