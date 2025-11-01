@@ -1,2 +1,3 @@
 ---
-BUNDLE_WITH: "ldap"
+BUNDLE_WITH: "development:test"
+BUNDLE_PATH: "vendor/bundle"
