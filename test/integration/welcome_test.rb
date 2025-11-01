@@ -82,7 +82,6 @@ class WelcomeTest < Redmine::IntegrationTest
 
   def test_home_page_should_be_accessible_as_logged_in_user
     log_user('jsmith', 'jsmith')
-    
     get '/'
     assert_response :success
     assert_select 'h2', :text => 'Home'
@@ -90,7 +89,6 @@ class WelcomeTest < Redmine::IntegrationTest
 
   def test_home_page_should_display_latest_news_when_available
     log_user('jsmith', 'jsmith')
-    
     get '/'
     assert_response :success
     # If there are news items, they should be displayed
