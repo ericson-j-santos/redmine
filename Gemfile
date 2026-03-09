@@ -127,6 +127,17 @@ group :test do
   gem 'bundle-audit', require: false
   # for testing oauth provider capabilities
   gem 'oauth2'
+  # RSpec testing framework
+  gem 'rspec-rails', '~> 7.1.0'
+  # Test data generation
+  gem 'factory_bot_rails', '~> 6.2.0'
+  gem 'faker', '~> 3.2.0'
+  # Matchers for RSpec
+  gem 'shoulda-matchers', '~> 5.1.0'
+  # HTTP request stubbing
+  gem 'webmock', '~> 3.23.0'
+  # Database cleaning between tests
+  gem 'database_cleaner-active_record', '~> 2.1.0'
 end
 
 local_gemfile = File.join(File.dirname(__FILE__), "Gemfile.local")
@@ -138,3 +149,7 @@ end
 Dir.glob File.expand_path("../plugins/*/{Gemfile,PluginGemfile}", __FILE__) do |file|
   eval_gemfile file
 end
+
+gem "ox", "~> 2.14"
+gem "slim-rails", "~> 3.7"
+# gem "xapian-ruby", "~> 1.4"  # Comentado - requer compilação C++ que trava

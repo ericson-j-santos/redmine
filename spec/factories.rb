@@ -139,4 +139,78 @@ FactoryBot.define do
     created_on { Time.current }
     updated_on { Time.current }
   end
+
+  factory :version do
+    project
+    sequence(:name) { |n| "Version #{n}" }
+    description { Faker::Lorem.sentence }
+    status { 'open' }
+    sharing { 'none' }
+
+    trait :closed do
+      status { 'closed' }
+    end
+
+    trait :with_due_date do
+      effective_date { 1.month.from_now }
+    end
+  end
+
+  factory :webhook do
+    user
+    url { 'https://example.com/webhook' }
+    events { ['issue.created', 'issue.updated'] }
+    active { true }
+    secret { 'webhook_secret_123' }
+
+    trait :inactive do
+      active { false }
+    end
+  end
+
+  factory :custom_value do
+    customized { association :issue }
+    custom_field { association :custom_field }
+    value { Faker::Lorem.word }
+  end
+
+  factory :custom_field, class: 'IssueCustomField' do
+    sequence(:name) { |n| "Custom Field #{n}" }
+    field_format { 'string' }
+    is_required { false }
+    is_for_all { true }
+    type { 'IssueCustomField' }
+  end
+
+  factory :attachment do
+    container { association :issue }
+    author { association :user }
+    filename { 'test_file.txt' }
+    disk_filename { "#{Time.now.to_i}_test_file.txt" }
+    filesize { 1024 }
+    content_type { 'text/plain' }
+    digest { Digest::MD5.hexdigest('test content') }
+    created_on { Time.current }
+  end
+
+  factory :journal do
+    journalized { association :issue }
+    user
+    notes { Faker::Lorem.paragraph }
+    created_on { Time.current }
+
+    trait :with_details do
+      after(:create) do |journal|
+        create(:journal_detail, journal: journal)
+      end
+    end
+  end
+
+  factory :journal_detail do
+    journal
+    property { 'attr' }
+    prop_key { 'status_id' }
+    old_value { '1' }
+    value { '2' }
+  end
 end

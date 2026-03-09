@@ -38,6 +38,8 @@
 /tmp/test/*
 /tmp/thumbnails/*
 /vendor/cache
+/vendor/bundle
+/.venv-redmine
 *.rbc
 
 /.bundle
@@ -46,3 +48,6 @@
 
 /node_modules
 yarn-error.log
+
+# Documentação arquivada
+_archived_docs/

@@ -1,0 +1,91 @@
+Tracker,Subject,Description,Status,Fase
+Task,D-01 - Objetivo da solução,"Issue D-01 (Discovery) - Objetivo da solução.
+Status atual: Closed.",Closed,Discovery
+Task,D-02 - Fluxo fim a fim (sequence diagram),"Issue D-02 (Discovery) - Fluxo fim a fim (sequence diagram).
+Status atual: Closed.",Closed,Discovery
+Task,D-03 - Entidades principais,"Issue D-03 (Discovery) - Entidades principais.
+Status atual: Closed.",Closed,Discovery
+Task,D-04 - Integrações macro,"Issue D-04 (Discovery) - Integrações macro.
+Status atual: Closed.",Closed,Discovery
+Task,D-05 - Requisitos funcionais detalhados,"Issue D-05 (Discovery) - Requisitos funcionais detalhados.
+Status atual: Closed.",Closed,Discovery
+Task,D-06 - Requisitos não funcionais,"Issue D-06 (Discovery) - Requisitos não funcionais.
+Status atual: Closed.",Closed,Discovery
+Task,D-07 - Dados pessoais sensíveis (LGPD),"Issue D-07 (Discovery) - Dados pessoais sensíveis (LGPD).
+Status atual: Closed.",Closed,Discovery
+Task,D-08 - Papéis (RBAC),"Issue D-08 (Discovery) - Papéis (RBAC).
+Status atual: Closed.",Closed,Discovery
+Task,D-09 - Padrão correlation-id e logs estruturados,"Issue D-09 (Discovery) - Padrão correlation-id e logs estruturados.
+Status atual: Closed.",Closed,Discovery
+Task,D-10 - Métricas principais,"Issue D-10 (Discovery) - Métricas principais.
+Status atual: Closed.",Closed,Discovery
+Task,B-01 - Estrutura base backend,"Issue B-01 (Delivery – Backend) - Estrutura base backend.
+Status atual: Closed.",Closed,Delivery – Backend
+Task,B-02 - main.py + middleware correlation-id,"Issue B-02 (Delivery – Backend) - main.py + middleware correlation-id.
+Status atual: Closed.",Closed,Delivery – Backend
+Task,B-03 - Conexão banco (SQLAlchemy),"Issue B-03 (Delivery – Backend) - Conexão banco (SQLAlchemy).
+Status atual: Closed.",Closed,Delivery – Backend
+Task,B-04 - Modelos ORM Proposta/Simulacao,"Issue B-04 (Delivery – Backend) - Modelos ORM Proposta/Simulacao.
+Status atual: Closed.",Closed,Delivery – Backend
+Task,B-05 - Schemas Pydantic,"Issue B-05 (Delivery – Backend) - Schemas Pydantic.
+Status atual: Closed.",Closed,Delivery – Backend
+Task,B-06 - Endpoint POST /propostas,"Issue B-06 (Delivery – Backend) - Endpoint POST /propostas.
+Status atual: Closed.",Closed,Delivery – Backend
+Task,B-07 - Endpoint GET /propostas/{id}/status,"Issue B-07 (Delivery – Backend) - Endpoint GET /propostas/{id}/status.
+Status atual: Closed.",Closed,Delivery – Backend
+Task,B-08 - Endpoint GET /propostas/{id}/detalhes,"Issue B-08 (Delivery – Backend) - Endpoint GET /propostas/{id}/detalhes.
+Status atual: Closed.",Closed,Delivery – Backend
+Task,B-09 - Validações de negócio adicionais,"Issue B-09 (Delivery – Backend) - Validações de negócio adicionais.
+Status atual: Closed.",Closed,Delivery – Backend
+Task,B-10 - Função processar_proposta,"Issue B-10 (Delivery – Backend) - Função processar_proposta.
+Status atual: Closed.",Closed,Delivery – Backend
+Task,B-11 - Chamada Site A (dados de contrato),"Issue B-11 (Delivery – Backend) - Chamada Site A (dados de contrato).
+Status atual: Closed.",Closed,Delivery – Backend
+Task,B-12 - Chamada Sistema B (taxas),"Issue B-12 (Delivery – Backend) - Chamada Sistema B (taxas).
+Status atual: Closed.",Closed,Delivery – Backend
+Task,B-13 - Motor de simulação,"Issue B-13 (Delivery – Backend) - Motor de simulação.
+Status atual: Closed.",Closed,Delivery – Backend
+Task,B-14 - Persistir resultado simulação,"Issue B-14 (Delivery – Backend) - Persistir resultado simulação.
+Status atual: Closed.",Closed,Delivery – Backend
+Task,B-15 - Atualização de status da proposta,"Issue B-15 (Delivery – Backend) - Atualização de status da proposta.
+Status atual: Closed.",Closed,Delivery – Backend
+Task,B-16 - Cliente SMTP / e-mail (mock),"Issue B-16 (Delivery – Backend) - Cliente SMTP / e-mail (mock).
+Status atual: Closed.",Closed,Delivery – Backend
+Task,B-17 - Template HTML de e-mail da simulação,"Issue B-17 (Delivery – Backend) - Template HTML de e-mail da simulação.
+Status atual: In Progress.
+Próximo passo: criar template HTML mais rico para o corpo do e-mail de simulação.",In Progress,Delivery – Backend
+Task,B-18 - Função enviar_email_simulacao,"Issue B-18 (Delivery – Backend) - Função enviar_email_simulacao.
+Status atual: Closed.",Closed,Delivery – Backend
+Task,F-01 - Projeto Vue 3 + Vite + Vuetify + Pinia,"Issue F-01 (Delivery – Frontend) - Projeto Vue 3 + Vite + Vuetify + Pinia.
+Status atual: Closed.",Closed,Delivery – Frontend
+Task,F-02 - Configuração Axios + interceptor correlation-id,"Issue F-02 (Delivery – Frontend) - Configuração Axios + interceptor correlation-id.
+Status atual: Closed.",Closed,Delivery – Frontend
+Task,F-03 - Vue Router básico,"Issue F-03 (Delivery – Frontend) - Vue Router básico.
+Status atual: Closed.",Closed,Delivery – Frontend
+Task,F-04 - Layout base (mínimo),"Issue F-04 (Delivery – Frontend) - Layout base (mínimo).
+Status atual: Closed.",Closed,Delivery – Frontend
+Task,F-05 - Tela PropostaFormularioView,"Issue F-05 (Delivery – Frontend) - Tela PropostaFormularioView.
+Status atual: Closed.",Closed,Delivery – Frontend
+Task,F-06 - Tela PropostaAcompanhamentoView,"Issue F-06 (Delivery – Frontend) - Tela PropostaAcompanhamentoView.
+Status atual: Closed.",Closed,Delivery – Frontend
+Task,F-07 - Store Pinia usePropostaStore,"Issue F-07 (Delivery – Frontend) - Store Pinia usePropostaStore.
+Status atual: Closed.",Closed,Delivery – Frontend
+Task,F-08 - Skeleton loader no formulário,"Issue F-08 (Delivery – Frontend) - Skeleton loader no formulário.
+Status atual: Closed.",Closed,Delivery – Frontend
+Task,F-09 - Skeleton loader no acompanhamento,"Issue F-09 (Delivery – Frontend) - Skeleton loader no acompanhamento.
+Status atual: Closed.",Closed,Delivery – Frontend
+Task,F-10 - Cards de status customizados na UI,"Issue F-10 (Delivery – Frontend) - Cards de status customizados na UI.
+Status atual: In Progress.
+Próximo passo: enriquecer UI com chips/steps Vuetify para representar a jornada da proposta.",In Progress,Delivery – Frontend
+Task,S-01 - Log estruturado com correlation-id,"Issue S-01 (Scale) - Log estruturado com correlation-id.
+Status atual: Closed.",Closed,Scale
+Task,S-02 - Modelo de dashboard (Power BI / etc.),"Issue S-02 (Scale) - Modelo de dashboard (Power BI / etc.).
+Status atual: Closed.",Closed,Scale
+Task,S-03 - Retry/circuit breaker em chamadas externas,"Issue S-03 (Scale) - Retry/circuit breaker em chamadas externas.
+Status atual: Closed.",Closed,Scale
+Task,S-04 - Mascaramento de dados sensíveis,"Issue S-04 (Scale) - Mascaramento de dados sensíveis.
+Status atual: Closed.",Closed,Scale
+Task,S-05 - RBAC backend/frontend,"Issue S-05 (Scale) - RBAC backend/frontend.
+Status atual: Closed.",Closed,Scale
+Task,S-06 - Testes automatizados (pytest),"Issue S-06 (Scale) - Testes automatizados (pytest).
+Status atual: Closed.",Closed,Scale

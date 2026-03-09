@@ -1,0 +1,45 @@
+ID,Título,Status,Fase,Criado Em,Atualizado Em,Lead Time (h),URL
+1,D-01 - Objetivo da solução,Fechada,Discovery,27/11/2025 23:06,27/11/2025 23:24,0.30,http://localhost:3001/issues/1
+2,D-02 - Fluxo fim a fim (sequence diagram),Fechada,Discovery,27/11/2025 23:06,27/11/2025 23:24,0.30,http://localhost:3001/issues/2
+3,D-03 - Entidades principais,Fechada,Discovery,27/11/2025 23:06,27/11/2025 23:24,0.30,http://localhost:3001/issues/3
+4,D-04 - Integrações macro,Fechada,Discovery,27/11/2025 23:06,27/11/2025 23:24,0.30,http://localhost:3001/issues/4
+5,D-05 - Requisitos funcionais detalhados,Fechada,Discovery,27/11/2025 23:06,27/11/2025 23:24,0.30,http://localhost:3001/issues/5
+6,D-06 - Requisitos não funcionais,Fechada,Discovery,27/11/2025 23:06,27/11/2025 23:24,0.30,http://localhost:3001/issues/6
+7,D-07 - Dados pessoais sensíveis (LGPD),Fechada,Discovery,27/11/2025 23:06,27/11/2025 23:24,0.30,http://localhost:3001/issues/7
+8,D-08 - Papéis (RBAC),Fechada,Discovery,27/11/2025 23:06,27/11/2025 23:24,0.30,http://localhost:3001/issues/8
+9,D-09 - Padrão correlation-id e logs estruturados,Fechada,Discovery,27/11/2025 23:06,27/11/2025 23:24,0.30,http://localhost:3001/issues/9
+10,D-10 - Métricas principais,Fechada,Discovery,27/11/2025 23:06,27/11/2025 23:24,0.30,http://localhost:3001/issues/10
+11,B-01 - Estrutura base backend,Fechada,Delivery – Backend,27/11/2025 23:06,27/11/2025 23:24,0.30,http://localhost:3001/issues/11
+12,B-02 - main.py + middleware correlation-id,Fechada,Delivery – Backend,27/11/2025 23:06,27/11/2025 23:24,0.30,http://localhost:3001/issues/12
+13,B-03 - Conexão banco (SQLAlchemy),Fechada,Delivery – Backend,27/11/2025 23:06,27/11/2025 23:24,0.30,http://localhost:3001/issues/13
+14,B-04 - Modelos ORM Proposta/Simulacao,Fechada,Delivery – Backend,27/11/2025 23:06,27/11/2025 23:24,0.30,http://localhost:3001/issues/14
+15,B-05 - Schemas Pydantic,Fechada,Delivery – Backend,27/11/2025 23:06,27/11/2025 23:24,0.30,http://localhost:3001/issues/15
+16,B-06 - Endpoint POST /propostas,Fechada,Delivery – Backend,27/11/2025 23:06,27/11/2025 23:24,0.30,http://localhost:3001/issues/16
+17,B-07 - Endpoint GET /propostas/{id}/status,Fechada,Delivery – Backend,27/11/2025 23:06,27/11/2025 23:24,0.30,http://localhost:3001/issues/17
+18,B-08 - Endpoint GET /propostas/{id}/detalhes,Fechada,Delivery – Backend,27/11/2025 23:06,27/11/2025 23:24,0.30,http://localhost:3001/issues/18
+19,B-09 - Validações de negócio adicionais,Fechada,Delivery – Backend,27/11/2025 23:06,27/11/2025 23:24,0.30,http://localhost:3001/issues/19
+20,B-10 - Função processar_proposta,Fechada,Delivery – Backend,27/11/2025 23:06,27/11/2025 23:24,0.30,http://localhost:3001/issues/20
+21,B-11 - Chamada Site A (dados de contrato),Fechada,Delivery – Backend,27/11/2025 23:06,27/11/2025 23:24,0.30,http://localhost:3001/issues/21
+22,B-12 - Chamada Sistema B (taxas),Fechada,Delivery – Backend,27/11/2025 23:06,27/11/2025 23:24,0.30,http://localhost:3001/issues/22
+23,B-13 - Motor de simulação,Fechada,Delivery – Backend,27/11/2025 23:06,27/11/2025 23:24,0.30,http://localhost:3001/issues/23
+24,B-14 - Persistir resultado simulação,Fechada,Delivery – Backend,27/11/2025 23:06,27/11/2025 23:24,0.30,http://localhost:3001/issues/24
+25,B-15 - Atualização de status da proposta,Fechada,Delivery – Backend,27/11/2025 23:06,27/11/2025 23:24,0.30,http://localhost:3001/issues/25
+26,B-16 - Cliente SMTP / e-mail (mock),Fechada,Delivery – Backend,27/11/2025 23:06,27/11/2025 23:24,0.30,http://localhost:3001/issues/26
+27,B-17 - Template HTML de e-mail da simulação,Em andamento,Delivery – Backend,27/11/2025 23:06,27/11/2025 23:24,0.00,http://localhost:3001/issues/27
+28,B-18 - Função enviar_email_simulacao,Fechada,Delivery – Backend,27/11/2025 23:06,27/11/2025 23:24,0.30,http://localhost:3001/issues/28
+29,F-01 - Projeto Vue 3 + Vite + Vuetify + Pinia,Fechada,Delivery – Frontend,27/11/2025 23:06,27/11/2025 23:24,0.30,http://localhost:3001/issues/29
+30,F-02 - Configuração Axios + interceptor correlation-id,Fechada,Delivery – Frontend,27/11/2025 23:06,27/11/2025 23:24,0.30,http://localhost:3001/issues/30
+31,F-03 - Vue Router básico,Fechada,Delivery – Frontend,27/11/2025 23:06,27/11/2025 23:24,0.30,http://localhost:3001/issues/31
+32,F-04 - Layout base (mínimo),Fechada,Delivery – Frontend,27/11/2025 23:06,27/11/2025 23:24,0.30,http://localhost:3001/issues/32
+33,F-05 - Tela PropostaFormularioView,Fechada,Delivery – Frontend,27/11/2025 23:06,27/11/2025 23:24,0.30,http://localhost:3001/issues/33
+34,F-06 - Tela PropostaAcompanhamentoView,Fechada,Delivery – Frontend,27/11/2025 23:06,27/11/2025 23:24,0.30,http://localhost:3001/issues/34
+35,F-07 - Store Pinia usePropostaStore,Fechada,Delivery – Frontend,27/11/2025 23:06,27/11/2025 23:24,0.30,http://localhost:3001/issues/35
+36,F-08 - Skeleton loader no formulário,Fechada,Delivery – Frontend,27/11/2025 23:06,27/11/2025 23:24,0.30,http://localhost:3001/issues/36
+37,F-09 - Skeleton loader no acompanhamento,Fechada,Delivery – Frontend,27/11/2025 23:06,27/11/2025 23:24,0.30,http://localhost:3001/issues/37
+38,F-10 - Cards de status customizados na UI,Em andamento,Delivery – Frontend,27/11/2025 23:06,27/11/2025 23:24,0.00,http://localhost:3001/issues/38
+39,S-01 - Log estruturado com correlation-id,Fechada,Scale,27/11/2025 23:06,27/11/2025 23:24,0.30,http://localhost:3001/issues/39
+40,S-02 - Modelo de dashboard (Power BI / etc.),Fechada,Scale,27/11/2025 23:06,27/11/2025 23:24,0.30,http://localhost:3001/issues/40
+41,S-03 - Retry/circuit breaker em chamadas externas,Fechada,Scale,27/11/2025 23:06,27/11/2025 23:24,0.30,http://localhost:3001/issues/41
+42,S-04 - Mascaramento de dados sensíveis,Fechada,Scale,27/11/2025 23:06,27/11/2025 23:24,0.30,http://localhost:3001/issues/42
+43,S-05 - RBAC backend/frontend,Fechada,Scale,27/11/2025 23:06,27/11/2025 23:24,0.30,http://localhost:3001/issues/43
+44,S-06 - Testes automatizados (pytest),Fechada,Scale,27/11/2025 23:06,27/11/2025 23:24,0.30,http://localhost:3001/issues/44

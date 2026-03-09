@@ -1,2 +1,4 @@
 ---
 BUNDLE_WITH: "ldap"
+BUNDLE_PATH: "vendor/bundle"
+BUNDLE_WITHOUT: "mysql:postgresql:sqlserver"
