@@ -12,10 +12,14 @@ Rails.application.config.to_prepare do
   Redmine::Preparation.prepare
 end
 
-# Load the secret token from the Redmine configuration file
-secret = Redmine::Configuration['secret_token']
+# Load the secret token from the Redmine configuration file.
+# Rails 8 requires +secret_key_base+ during boot (eg. assets tasks).
+secret = ENV['SECRET_KEY_BASE'].presence || Redmine::Configuration['secret_token']
 if secret.present?
+  RedmineApp::Application.config.secret_key_base = secret
   RedmineApp::Application.config.secret_token = secret
+elsif defined?(Rake) && Rake.application.top_level_tasks.any? { |task| task.start_with?('assets:') }
+  RedmineApp::Application.config.secret_key_base = 'redmine-assets-build-secret'
 end
 
 Redmine::PluginLoader.load
