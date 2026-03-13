@@ -20,6 +20,7 @@ secret = ENV['SECRET_KEY_BASE'].presence ||
   ENV['SECRET_TOKEN'].presence ||
   Redmine::Configuration['secret_token']
 
+
 if secret.present?
   RedmineApp::Application.config.secret_key_base = secret
   RedmineApp::Application.config.secret_token = secret
