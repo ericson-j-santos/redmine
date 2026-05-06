@@ -16,6 +16,8 @@ gem 'addressable'
 gem 'rubyzip', '~> 3.1.1'
 gem 'propshaft', '~> 1.1.0'
 gem 'rack', '>= 3.1.3'
+gem 'pg', '~> 1.5.3'
+gem 'puma', '~> 7.1'
 gem "stimulus-rails", "~> 1.3"
 gem "importmap-rails", "~> 2.0"
 gem 'commonmarker', '~> 2.3.2'
@@ -106,7 +108,7 @@ group :development do
   gem 'yard', require: false
   gem 'svg_sprite', require: false
   gem 'bullet'
-  gem 'ruby-lsp', require: false
+  gem 'ruby-lsp', '>= 0.26.9', require: false
 end
 
 group :test do
@@ -115,7 +117,6 @@ group :test do
   gem 'simplecov', '~> 0.22.0', :require => false
   gem "ffi", platforms: [:mingw, :x64_mingw, :mswin]
   # For running system tests
-  gem 'puma'
   gem "capybara", ">= 3.39"
   gem 'selenium-webdriver', '>= 4.11.0'
   # For integration tests with assert_template

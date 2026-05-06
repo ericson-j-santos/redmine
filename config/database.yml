@@ -3,9 +3,13 @@
 # Line indentation must be 2 spaces (no tabs).
 
 production:
+  <% if ENV['DATABASE_URL'] && !ENV['DATABASE_URL'].empty? %>
+  url: <%= ENV['DATABASE_URL'] %>
+  <% else %>
   adapter: sqlite3
   database: db/redmine.sqlite3
   timeout: 5000
+  <% end %>
 
 development:
   adapter: sqlite3

@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$ROOT_DIR"
+
+run_check() {
+  local name="$1"
+  shift
+  echo "[ci-verify] running: $name"
+  if "$@"; then
+    echo "[ci-verify] ✅ $name"
+  else
+    echo "[ci-verify] ❌ $name"
+    return 1
+  fi
+}
+
+run_check "bundle-audit" bundle exec bundle audit check --update
+run_check "rubocop" bundle exec rubocop --parallel
+run_check "rails test" bin/rails test
+
+echo "[ci-verify] all checks passed"
