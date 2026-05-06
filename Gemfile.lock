@@ -251,7 +251,7 @@ GEM
     pp (0.6.3)
       prettyprint
     prettyprint (0.2.0)
-    prism (1.6.0)
+    prism (1.9.0)
     propshaft (1.1.0)
       actionpack (>= 7.0.0)
       activesupport (>= 7.0.0)
@@ -315,8 +315,10 @@ GEM
       htmlentities
       rbpdf-font (~> 1.19.0)
     rbpdf-font (1.19.1)
-    rbs (3.9.5)
+    rbs (4.0.2)
       logger
+      prism (>= 1.6.0)
+      tsort
     rdoc (6.15.0)
       erb
       psych (>= 4.0.0)
@@ -385,7 +387,7 @@ GEM
       rack (>= 1.1)
       rubocop (>= 1.75.0, < 2.0)
       rubocop-ast (>= 1.44.0, < 2.0)
-    ruby-lsp (0.26.1)
+    ruby-lsp (0.26.9)
       language_server-protocol (~> 3.17.0)
       prism (>= 1.2, < 2.0)
       rbs (>= 3, < 5)
@@ -522,7 +524,7 @@ DEPENDENCIES
   rubocop (~> 1.76.0)
   rubocop-performance (~> 1.26.0)
   rubocop-rails (~> 2.32.0)
-  ruby-lsp
+  ruby-lsp (>= 0.26.9)
   rubyzip (~> 3.1.1)
   sanitize (~> 6.0)
   selenium-webdriver (>= 4.11.0)
@@ -540,4 +542,4 @@ RUBY VERSION
    ruby 3.2.3p157
 
 BUNDLED WITH
-   2.7.2
+   2.6.7

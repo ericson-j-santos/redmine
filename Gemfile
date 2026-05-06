@@ -108,7 +108,7 @@ group :development do
   gem 'yard', require: false
   gem 'svg_sprite', require: false
   gem 'bullet'
-  gem 'ruby-lsp', require: false
+  gem 'ruby-lsp', '>= 0.26.9', require: false
 end
 
 group :test do
