@@ -16,6 +16,7 @@ gem 'addressable'
 gem 'rubyzip', '~> 3.1.1'
 gem 'propshaft', '~> 1.1.0'
 gem 'rack', '>= 3.1.3'
+gem 'pg', '~> 1.5.3'
 gem 'puma', '~> 7.1'
 gem "stimulus-rails", "~> 1.3"
 gem "importmap-rails", "~> 2.0"
