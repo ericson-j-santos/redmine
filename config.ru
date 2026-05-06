@@ -5,6 +5,7 @@
 if ENV['RACK_ENV'] == 'deployment' || ENV['RAILS_ENV'] == 'deployment'
   ENV['RACK_ENV'] = 'production'
   ENV['RAILS_ENV'] = 'production'
+
 end
 
 require_relative 'config/environment'
