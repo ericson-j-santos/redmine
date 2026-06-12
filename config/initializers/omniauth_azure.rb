@@ -4,9 +4,9 @@ require 'omniauth/rails_csrf_protection'
 
 Rails.application.config.middleware.use OmniAuth::Builder do
   provider :azure_activedirectory_v2,
-    ENV.fetch('AZURE_CLIENT_ID', ''),
-    ENV.fetch('AZURE_CLIENT_SECRET', ''),
-    { tenant_id: ENV.fetch('AZURE_TENANT_ID', 'common') }
+    client_id:     ENV.fetch('AZURE_CLIENT_ID', ''),
+    client_secret: ENV.fetch('AZURE_CLIENT_SECRET', ''),
+    tenant_id:     ENV.fetch('AZURE_TENANT_ID', 'common')
 end
 
 OmniAuth.config.allowed_request_methods = [:get, :post]
