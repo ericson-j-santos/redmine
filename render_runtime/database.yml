@@ -1,5 +1,5 @@
 production:
-  adapter: postgresql
-  url: <%= ENV.fetch("DATABASE_URL") %>
-  encoding: unicode
+  adapter: sqlite3
+  database: <%= Rails.root.join("tmp", "reqsys_redmine_e2e.sqlite3") %>
   pool: <%= ENV.fetch("RAILS_MAX_THREADS", "5") %>
+  timeout: 5000
