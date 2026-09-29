@@ -1,0 +1,5 @@
+production:
+  adapter: postgresql
+  url: <%= ENV.fetch("DATABASE_URL") %>
+  encoding: unicode
+  pool: <%= ENV.fetch("RAILS_MAX_THREADS", "5") %>
