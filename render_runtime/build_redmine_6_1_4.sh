@@ -18,8 +18,11 @@ tar -xzf "/tmp/${ARCHIVE}" -C "${RUNTIME_ROOT}"
 cp "${ROOT}/render_runtime/database.yml" "${REDMINE_ROOT}/config/database.yml"
 cd "${REDMINE_ROOT}"
 
+bundle config unset deployment || true
+bundle config unset frozen || true
 bundle config set --local without 'development test'
-bundle install --jobs 4 --retry 3
+BUNDLE_DEPLOYMENT=false BUNDLE_FROZEN=false bundle lock
+BUNDLE_DEPLOYMENT=false BUNDLE_FROZEN=false bundle install --jobs 4 --retry 3
 RAILS_ENV=production bundle exec rake generate_secret_token
 RAILS_ENV=production bundle exec rails db:migrate
 RAILS_ENV=production REDMINE_LANG=en bundle exec rake redmine:load_default_data
