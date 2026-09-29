@@ -30,7 +30,7 @@ RAILS_ENV=production bundle exec rails runner "${ROOT}/render_runtime/bootstrap.
 RAILS_ENV=production bundle exec rake assets:precompile
 
 # E2E real ReqSys <-> Redmine no mesmo ambiente: o segredo permanece local.
-REQSYS_SHA="a3fe46286b31630aaef1be9ba6d5fddc783b9d61"
+REQSYS_SHA="b84576f76fad584bc420cb447d046aaafdc775ba"
 REQSYS_ROOT="${RUNTIME_ROOT}/reqsys-${REQSYS_SHA}"
 REQSYS_VENV="${RUNTIME_ROOT}/reqsys-e2e-venv"
 E2E_PORT="3000"
