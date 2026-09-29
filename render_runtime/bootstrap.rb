@@ -34,8 +34,10 @@ project.status = Project::STATUS_ACTIVE
 project.save!
 project.trackers = Tracker.all if project.trackers.empty?
 
-role = Role.where(builtin: 0).order(:position).first
-abort "No regular role available after default data load" unless role
+role = Role.where(builtin: 0).order(:position).detect do |candidate|
+  candidate.permissions.include?(:add_issues) && candidate.permissions.include?(:edit_issues)
+end
+abort "No regular role with issue write permissions available after default data load" unless role
 
 member = Member.find_or_initialize_by(project: project, user: user)
 member.roles = [role]
