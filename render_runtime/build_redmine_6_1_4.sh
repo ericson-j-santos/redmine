@@ -16,12 +16,11 @@ printf '%s  %s\n' "${EXPECTED_SHA256}" "/tmp/${ARCHIVE}" | sha256sum --check -
 tar -xzf "/tmp/${ARCHIVE}" -C "${RUNTIME_ROOT}"
 
 cp "${ROOT}/render_runtime/database.yml" "${REDMINE_ROOT}/config/database.yml"
-printf "%s\\n" "gem 'puma', '~> 6.4'" > "${REDMINE_ROOT}/Gemfile.local"
 cd "${REDMINE_ROOT}"
 
 bundle config unset deployment || true
 bundle config unset frozen || true
-bundle config set --local without 'development test'
+bundle config set --local without 'development'
 BUNDLE_DEPLOYMENT=false BUNDLE_FROZEN=false bundle lock
 BUNDLE_DEPLOYMENT=false BUNDLE_FROZEN=false bundle install --jobs 4 --retry 3
 RAILS_ENV=production bundle exec rake generate_secret_token
