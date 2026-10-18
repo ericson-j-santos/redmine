@@ -53,3 +53,32 @@ jobs:
 
       - name: Run bundle-audit
         run: bundle exec bundle audit check --update
+
+  runtime-safety:
+    name: Redmine DEV runtime safety
+    if: github.ref == 'refs/heads/dev/reqsys-e2e-redmine-6.1.4-20260928'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout exact commit without persisted credentials
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+          fetch-depth: 1
+          sparse-checkout: |
+            render_runtime
+            .github/workflows/linters.yml
+      - name: Validate syntax and execute local safety regressions
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "${GITHUB_SHA}"
+          python3 --version
+          bash -n render_runtime/build_redmine_6_1_4.sh
+          ruby -c render_runtime/bootstrap.rb
+          python3 -m py_compile render_runtime/runtime_safety.py render_runtime/tests/test_runtime_safety.py
+          python3 -m unittest discover -s render_runtime/tests -p 'test_*.py' -v
+          printf 'REDMINE_RUNTIME_SAFETY_TESTED sha=%s scope=local-contracts-not-render-e2e\n' "${GITHUB_SHA}"
