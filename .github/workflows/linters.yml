@@ -82,3 +82,143 @@ jobs:
           python3 -m py_compile render_runtime/runtime_safety.py render_runtime/tests/test_runtime_safety.py
           python3 -m unittest discover -s render_runtime/tests -p 'test_*.py' -v
           printf 'REDMINE_RUNTIME_SAFETY_TESTED sha=%s scope=local-contracts-not-render-e2e\n' "${GITHUB_SHA}"
+
+  runtime-full-build:
+    name: Redmine DEV full isolated build
+    needs: runtime-safety
+    if: github.event_name == 'push' && github.ref == 'refs/heads/dev/reqsys-e2e-redmine-6.1.4-20260928'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    concurrency:
+      group: redmine-full-isolated-${{ github.ref }}
+      cancel-in-progress: false
+    steps:
+      - name: Checkout exact source without credentials
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+          sparse-checkout: render_runtime
+      - name: Set up supported Ruby without historical bundle cache
+        uses: ruby/setup-ruby@651ff0d62c5c79bed6d53ec518387aae20e72c1a
+        with:
+          ruby-version: '3.3'
+          bundler: '2.6.7'
+          bundler-cache: false
+      - name: Execute real release build in a fresh disposable directory
+        id: build
+        shell: python
+        run: |
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+          import re
+          import secrets
+          import shutil
+          import signal
+          import sqlite3
+          import subprocess
+          import tempfile
+
+          sha = os.environ["GITHUB_SHA"]
+          if not re.fullmatch(r"[0-9a-f]{40}", sha):
+              raise SystemExit("CI_SHA_INVALID")
+          if os.environ.get("GITHUB_REPOSITORY") != "ericson-j-santos/redmine":
+              raise SystemExit("CI_REPOSITORY_INVALID")
+          if os.environ.get("RUNNER_ENVIRONMENT") != "github-hosted":
+              raise SystemExit("CI_HOSTED_RUNNER_REQUIRED")
+          observed = subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip()
+          if observed != sha:
+              raise SystemExit("CI_CHECKOUT_SHA_MISMATCH")
+
+          root = Path(tempfile.mkdtemp(prefix="redmine-real-", dir=os.environ["RUNNER_TEMP"]))
+          shutil.copytree(Path("render_runtime"), root / "render_runtime")
+          home = root / "home"
+          home.mkdir(mode=0o700)
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
+              output.write(f"root={root}\n")
+
+          # Fresh test-only identity; no Render, PC24x7 or repository secrets are consumed.
+          key = secrets.token_hex(20)
+          env = {name: os.environ[name] for name in (
+              "PATH", "LANG", "LC_ALL", "SSL_CERT_FILE", "SSL_CERT_DIR", "GEM_HOME", "GEM_PATH"
+          ) if name in os.environ}
+          env.update({
+              "HOME": str(home),
+              "BUNDLE_PATH": str(root / "gems"),
+              "REQSYS_REDMINE_EPHEMERAL_E2E": "1",
+              "REQSYS_REDMINE_API_KEY": key,
+          })
+          log = root / "build.log"
+          print(f"REDMINE_ISOLATED_BUILD_STARTED sha={sha}", flush=True)
+          with log.open("x", encoding="utf-8") as stream:
+              proc = subprocess.Popen(
+                  ["bash", "render_runtime/build_redmine_6_1_4.sh"],
+                  cwd=root, env=env, stdout=stream, stderr=subprocess.STDOUT,
+                  start_new_session=True,
+              )
+              try:
+                  code = proc.wait(timeout=300)
+              except subprocess.TimeoutExpired:
+                  os.killpg(proc.pid, signal.SIGTERM)
+                  try:
+                      proc.wait(timeout=10)
+                  except subprocess.TimeoutExpired:
+                      os.killpg(proc.pid, signal.SIGKILL)
+                      proc.wait()
+                  code = 124
+          text = log.read_text(encoding="utf-8", errors="replace").replace(key, "[REDACTED]")
+          print("\n".join(text.splitlines()[-160:]), flush=True)
+          if code:
+              print(f"REDMINE_ISOLATED_BUILD_FAILED sha={sha} exit={code}", flush=True)
+              raise SystemExit(code)
+
+          evidence = root / ".runtime/redmine-6.1.5/public/reqsys-e2e/evidence.json"
+          raw = evidence.read_text(encoding="utf-8")
+          if key in raw:
+              raise SystemExit("CI_EVIDENCE_SECRET_DETECTED")
+          proof = json.loads(raw)
+          if proof.get("status") != "passed":
+              raise SystemExit("CI_BUILD_EVIDENCE_NOT_PASSED")
+          issue_id = proof["positive"]["redmine_issue_id"]
+          project_id = proof["redmine"]["project_id"]
+          db_path = root / ".runtime/redmine-6.1.5/tmp/reqsys_redmine_e2e.sqlite3"
+          db = sqlite3.connect(db_path.as_uri() + "?mode=ro", uri=True)
+          try:
+              if db.execute("PRAGMA integrity_check").fetchone() != ("ok",):
+                  raise SystemExit("CI_SQLITE_INTEGRITY_FAILED")
+              if db.execute("SELECT project_id FROM issues WHERE id=?", (issue_id,)).fetchone() != (project_id,):
+                  raise SystemExit("CI_PERSISTED_ISSUE_MISMATCH")
+              if db.execute("SELECT is_public FROM projects WHERE id=?", (project_id,)).fetchone() != (0,):
+                  raise SystemExit("CI_PROJECT_NOT_PRIVATE")
+          finally:
+              db.close()
+          print(json.dumps({
+              "status": "passed", "redmine_repo_sha": sha,
+              "reqsys_sha": proof["reqsys_sha"], "correlation_id": proof["correlation_id"],
+              "redmine_version": proof["redmine"]["version"],
+              "issue_id": issue_id, "project_id": project_id,
+              "independent_sqlite_readback": True,
+              "evidence_sha256": hashlib.sha256(raw.encode()).hexdigest(),
+              "scope": "github_hosted_isolated_not_render_or_pc24x7",
+          }, sort_keys=True), flush=True)
+
+      - name: Audit the downloaded runtime lock without bypass
+        if: always() && steps.build.outputs.root != ''
+        shell: bash
+        env:
+          BUILD_ROOT: ${{ steps.build.outputs.root }}
+        run: |
+          set -euo pipefail
+          target="${BUILD_ROOT}/.runtime/redmine-6.1.5"
+          if [ ! -s "${target}/Gemfile.lock" ]; then
+            echo "RUNTIME_AUDIT_BLOCKED_LOCK_NOT_GENERATED" >&2
+            exit 2
+          fi
+          timeout --kill-after=10s 120s gem install --no-document bundler-audit --version 0.9.2
+          cd "${target}"
+          sha256sum Gemfile.lock
+          timeout --kill-after=10s 120s bundler-audit check --update
