@@ -263,7 +263,7 @@ class BuildContractTests(unittest.TestCase):
         self.assertIn('REDMINE_VERSION="${OBSERVED_REDMINE_VERSION}"', self.source)
 
     def test_harness_and_product_are_independently_pinned(self):
-        self.assertIn('REQSYS_SHA="d1db91274de744aeee17da029e908f4486bfc31a"', self.source)
+        self.assertIn('REQSYS_SHA="19905ca8580ebc567e5f7cd3d4b9b31a9aa21012"', self.source)
         self.assertIn('HARNESS_SOURCE_SHA="b84576f76fad584bc420cb447d046aaafdc775ba"', self.source)
         self.assertIn('HARNESS_BLOB_SHA="4008741f26abc4a1487978682ad53d17b9f20adc"', self.source)
         self.assertIn('hash-object "${HARNESS_PATH}"', self.source)
@@ -288,7 +288,7 @@ class EvidenceTests(unittest.TestCase):
                 / "build_redmine_6_1_4.sh").read_text(encoding="utf-8")
         self.code = text.split("<<'PY'\n", 1)[1].split("\nPY\n", 1)[0]
         self.env = dict(
-            ENV, REQSYS_E2E_SHA="d1db91274de744aeee17da029e908f4486bfc31a",
+            ENV, REQSYS_E2E_SHA="19905ca8580ebc567e5f7cd3d4b9b31a9aa21012",
             REQSYS_E2E_HARNESS_SHA="b84576f76fad584bc420cb447d046aaafdc775ba",
             REQSYS_E2E_HARNESS_BLOB="4008741f26abc4a1487978682ad53d17b9f20adc",
             REDMINE_VERSION="6.1.5.stable", REDMINE_PROJECT_ID="42")
