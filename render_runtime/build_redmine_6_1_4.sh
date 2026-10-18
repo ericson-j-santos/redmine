@@ -64,15 +64,20 @@ bundle config unset frozen || true
 bundle config set --local without 'development'
 BUNDLE_DEPLOYMENT=false BUNDLE_FROZEN=false bundle lock
 BUNDLE_DEPLOYMENT=false BUNDLE_FROZEN=false bundle install --jobs 4 --retry 3
-OBSERVED_REDMINE_VERSION="$(bundle exec ruby -Ilib -rredmine/version -e 'print Redmine::VERSION.to_s')"
+STAGE="isolated_bootstrap"
+RAILS_ENV=production bundle exec rake generate_secret_token
+RAILS_ENV=production bundle exec rails db:migrate
+# The archive checksum fixes the source before setup. Version observation needs
+# the initialized Rails application, not a standalone require of redmine/version.
+STAGE="version_observation"
+OBSERVED_REDMINE_VERSION="$(RAILS_ENV=production bundle exec rails runner 'print Redmine::VERSION.to_s')"
 case "${OBSERVED_REDMINE_VERSION}" in
   "${REDMINE_VERSION}"|"${REDMINE_VERSION}.stable") ;;
   *) echo "REDMINE_OBSERVED_VERSION_MISMATCH" >&2; exit 2 ;;
 esac
+printf 'REDMINE_VERSION_OBSERVED version=%s\n' "${OBSERVED_REDMINE_VERSION}"
 
 STAGE="isolated_bootstrap"
-RAILS_ENV=production bundle exec rake generate_secret_token
-RAILS_ENV=production bundle exec rails db:migrate
 RAILS_ENV=production REDMINE_LANG=en bundle exec rake redmine:load_default_data
 RAILS_ENV=production bundle exec rails runner "${ROOT}/render_runtime/bootstrap.rb"
 RAILS_ENV=production bundle exec rake assets:precompile
