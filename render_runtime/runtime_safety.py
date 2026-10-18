@@ -104,7 +104,10 @@ def resolve_project(env: dict[str, str]) -> int:
             if response.status != 200:
                 raise SafetyError("REDMINE_PROJECT_HTTP_STATUS_INVALID")
             raw = response.read(MAX_RESPONSE_BYTES + 1)
-    except (HTTPError, URLError, TimeoutError, OSError):
+    except HTTPError as exc:
+        exc.close()
+        raise SafetyError("REDMINE_PROJECT_LOOKUP_FAILED") from None
+    except (URLError, TimeoutError, OSError):
         raise SafetyError("REDMINE_PROJECT_LOOKUP_FAILED") from None
     if len(raw) > MAX_RESPONSE_BYTES:
         raise SafetyError("REDMINE_PROJECT_RESPONSE_TOO_LARGE")
