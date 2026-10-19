@@ -17,6 +17,14 @@ jobs:
           ruby-version: 3.2
           bundler-cache: true
 
+      - name: Validate request spec syntax and parser negative control
+        shell: bash
+        run: |
+          set -euo pipefail
+          ruby -c spec/requests/projects_spec.rb
+          ruby -c spec/services/issue_import_spec.rb
+          ruby -rripper -e 'abort "RUBY_NEGATIVE_CONTROL_FAILED" unless Ripper.sexp("describe :outer do\n describe :first do\n end  describe :second do\n end\nend\n").nil?'
+
       - name: Lint code for consistent style
         run: bundle exec rubocop --parallel
 
@@ -107,6 +115,23 @@ jobs:
           ruby-version: '3.3'
           bundler: '2.6.7'
           bundler-cache: false
+      - name: Provision and verify real thumbnail dependency on disposable hosted runner
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "${RUNNER_ENVIRONMENT}" = "github-hosted"
+          test "${GITHUB_REPOSITORY}" = "ericson-j-santos/redmine"
+          test "$(git rev-parse HEAD)" = "${GITHUB_SHA}"
+          timeout --kill-after=10s 120s sudo -n apt-get -o Acquire::Retries=1 update
+          timeout --kill-after=10s 120s sudo -n apt-get -y --no-install-recommends install imagemagick
+          timeout 10s convert -version
+          probe="$(mktemp -d "${RUNNER_TEMP}/redmine-thumbnail.XXXXXX")"
+          timeout 10s convert -size 8x8 xc:white "${probe}/input.png"
+          timeout 10s convert "${probe}/input.png" -resize 4x4 "${probe}/output.jpg"
+          timeout 10s convert "${probe}/input.png" -resize 4x4 "${probe}/output.webp"
+          test "$(timeout 10s identify -format '%m:%wx%h' "${probe}/output.jpg")" = 'JPEG:4x4'
+          test "$(timeout 10s identify -format '%m:%wx%h' "${probe}/output.webp")" = 'WEBP:4x4'
+          printf 'REAL_THUMBNAIL_DEPENDENCY_VERIFIED sha=%s jpeg=4x4 webp=4x4\n' "${GITHUB_SHA}"
       - name: Execute real release build in a fresh disposable directory
         id: build
         shell: python
@@ -116,6 +141,7 @@ jobs:
           import os
           from pathlib import Path
           import re
+          import runpy
           import secrets
           import shutil
           import signal
@@ -176,7 +202,13 @@ jobs:
               print(f"REDMINE_ISOLATED_BUILD_FAILED sha={sha} exit={code}", flush=True)
               raise SystemExit(code)
 
-          evidence = root / ".runtime/redmine-6.1.5/public/reqsys-e2e/evidence.json"
+          runtime = root / ".runtime/redmine-6.1.5"
+          complete_gate = runpy.run_path(str(Path("render_runtime/completion_gate.py").resolve()))
+          upstream_suites = complete_gate["require_complete_suites"]({
+              name: (runtime / f"tmp/reqsys-{name}-compat.log").read_text(encoding="utf-8")
+              for name in ("attachment", "mailer")
+          })
+          evidence = runtime / "public/reqsys-e2e/evidence.json"
           raw = evidence.read_text(encoding="utf-8")
           if key in raw:
               raise SystemExit("CI_EVIDENCE_SECRET_DETECTED")
@@ -202,6 +234,7 @@ jobs:
               "redmine_version": proof["redmine"]["version"],
               "issue_id": issue_id, "project_id": project_id,
               "independent_sqlite_readback": True,
+              "upstream_suites": upstream_suites,
               "evidence_sha256": hashlib.sha256(raw.encode()).hexdigest(),
               "scope": "github_hosted_isolated_not_render_or_pc24x7",
           }, sort_keys=True), flush=True)

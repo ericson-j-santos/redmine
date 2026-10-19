@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 require 'omniauth'
 require 'omniauth-azure-activedirectory-v2'
 require 'omniauth/rails_csrf_protection'

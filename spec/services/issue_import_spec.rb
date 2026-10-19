@@ -13,13 +13,13 @@ RSpec.describe IssueImport do
         'description' => 'Test description',
         'priority' => 'Normal'
       }
-      
+
       import = IssueImport.new
       import.user = user
       import.settings = { 'project_id' => project.id }
-      
+
       issue = import.build_object(csv_data)
-      
+
       expect(issue).to be_a(Issue)
       expect(issue.subject).to eq('Test Issue')
     end
@@ -29,7 +29,7 @@ RSpec.describe IssueImport do
     it 'saves the issue' do
       issue = create(:issue, project: project)
       import = IssueImport.new
-      
+
       expect(import.save_object(issue)).to be true
       expect(issue).to be_persisted
     end

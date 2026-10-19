@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 # Criar trackers padrão
 trackers_data = [
   {name: 'Bug', default_status_id: 1, position: 1},

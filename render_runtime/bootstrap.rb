@@ -45,7 +45,7 @@ member.save!
 
 puts [
   "REQSYS_REDMINE_BOOTSTRAP_OK",
-  "version=#{Redmine::VERSION.to_s}",
+  "version=#{Redmine::VERSION}",
   "project_id=#{project.id}",
   "project_identifier=#{project.identifier}",
   "user_id=#{user.id}",

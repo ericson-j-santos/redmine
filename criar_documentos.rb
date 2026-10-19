@@ -1,4 +1,6 @@
 #!/usr/bin/env ruby
+# frozen_string_literal: true
+
 # Criar documentos no Redmine via Rails
 
 project = Project.find_by_identifier('proposta-suite')

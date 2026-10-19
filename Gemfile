@@ -82,7 +82,7 @@ if File.exist?(database_file)
         gem 'trilogy', '~> 2.9.0'
         gem "with_advisory_lock"
       when /postgresql/
-        gem 'pg', '~> 1.5.3'
+        next # pg is already declared above for the existing runtime.
       when /sqlite3/
         gem 'sqlite3', '~> 2.7.4'
       when /sqlserver/

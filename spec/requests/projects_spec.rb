@@ -14,14 +14,16 @@ RSpec.describe 'Projects API', type: :request do
   describe 'GET /projects' do
     it 'returns all projects' do
       create_list(:project, 3)
-      
+
       get '/projects.json', headers: { 'X-Redmine-API-Key' => user.api_key }
-      
+
       expect(response).to have_http_status(:success)
       json = JSON.parse(response.body)
       expect(json['projects'].count).to be >= 3
     end
-  end  describe 'GET /projects/:id' do
+  end
+
+  describe 'GET /projects/:id' do
     it 'returns a specific project' do
       get "/projects/#{project.identifier}.json"
 
