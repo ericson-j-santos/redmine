@@ -80,7 +80,11 @@ class SpentHoursIntegrationTest < Redmine::IntegrationTest
     assert_equal 'text/csv; header=present', response.media_type
     rows = CSV.parse(response.body, headers: true)
     assert rows.any?, 'CSV must contain persisted issues'
-    assert_equal 2, rows.headers.size
+    # IssueQuery always prepends the mandatory issue identifier column.
+    assert_equal 3, rows.headers.size
+    assert_equal '#', rows.headers.first.delete_prefix("\uFEFF")
+    persisted_issue = Issue.find(Integer(rows.first[0], 10))
+    assert_equal persisted_issue.subject, rows.first[1]
   end
 
   def test_issues_index_with_custom_columns_including_spent_hours
