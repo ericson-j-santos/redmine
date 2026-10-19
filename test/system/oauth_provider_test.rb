@@ -81,11 +81,10 @@ class OauthProviderSystemTest < ApplicationSystemTestCase
 
       click_button 'Authorize'
 
+      # Wait for the real callback and token exchange before reading the grant.
+      find 'p', visible: true, text: /Authorization succeeded/
       assert grant = app.access_grants.last
       assert_equal 'view_issues view_project', grant.scopes.to_s
-
-      # check for output defined above in the request handler
-      find 'p', visible: true, text: /Authorization succeeded/
       assert token.present?
 
       visit '/my/account'
