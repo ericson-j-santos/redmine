@@ -54,3 +54,13 @@ class ObserverContractTests(unittest.TestCase):
         with patch.object(target, "OBSERVER_GEMFILE_BLOB", target.blob_sha(raw)):
             with self.assertRaisesRegex(ValueError, "AMBIGUOUS"):
                 target.observer_candidate_gemfile(raw)
+
+    def test_committed_source_keeps_observer_and_frozen_workflow(self):
+        from pathlib import Path
+
+        root = Path(__file__).resolve().parents[2]
+        target.require_observer_contract((root / "Gemfile").read_bytes(),
+                                         (root / "Gemfile.lock").read_bytes())
+        workflow = (root / ".github/workflows/root-bundle-validation.yml").read_text()
+        self.assertIn("run: python3 render_runtime/root_bundle_check.py verify", workflow)
+        self.assertNotIn("run: python3 render_runtime/root_bundle_check.py observer-candidate", workflow)

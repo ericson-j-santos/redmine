@@ -78,7 +78,7 @@ jobs:
           fetch-depth: 1
           sparse-checkout: |
             render_runtime
-            .github/workflows/linters.yml
+            .github/workflows
       - name: Validate syntax and execute local safety regressions
         shell: bash
         run: |

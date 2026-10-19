@@ -112,6 +112,7 @@ group :development do
 end
 
 group :test do
+  gem 'observer', '0.1.2', require: false
   gem "rails-dom-testing", '>= 2.3.0'
   gem 'mocha', '>= 2.0.1'
   gem 'simplecov', '~> 0.22.0', :require => false
