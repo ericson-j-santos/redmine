@@ -77,5 +77,12 @@ class RootBundlePolicyTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 target.require_metadata_only_change(original, updated)
 
+    def test_committed_ruby_metadata_is_supported(self):
+        from pathlib import Path
+
+        lock = (Path(__file__).resolve().parents[2] / "Gemfile.lock").read_bytes()
+        version = target.require_metadata_only_change(lock, lock)
+        self.assertIn(version.split(".")[:2], (["3", "3"], ["3", "4"]))
+
 if __name__ == "__main__":
     unittest.main()
