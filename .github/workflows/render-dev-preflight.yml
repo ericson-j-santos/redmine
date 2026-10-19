@@ -1,0 +1,41 @@
+name: Render DEV read-only preflight
+
+on:
+  push:
+    branches: [dev/reqsys-e2e-redmine-6.1.4-20260928]
+    paths:
+      - .github/workflows/render-dev-preflight.yml
+      - render_runtime/render_dev_preflight.py
+      - render_runtime/tests/test_render_dev_preflight.py
+
+permissions:
+  contents: read
+
+concurrency:
+  group: redmine-dev-readonly-preflight
+  cancel-in-progress: false
+
+jobs:
+  preflight:
+    if: github.repository == 'ericson-j-santos/redmine'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 3
+    steps:
+      - name: Checkout exact source without persisted credentials
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+          sparse-checkout: |
+            render_runtime
+            .github/workflows
+      - name: Validate source and negative controls without secrets
+        run: |
+          test "$(git rev-parse HEAD)" = "${GITHUB_SHA}"
+          test "$(git remote get-url origin)" = "https://github.com/${GITHUB_REPOSITORY}"
+          python3 -m py_compile render_runtime/render_dev_preflight.py render_runtime/tests/test_render_dev_preflight.py
+          python3 -m unittest discover -s render_runtime/tests -p test_render_dev_preflight.py -v
+      - name: Qualify existing Render access
+        env:
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+        run: python3 render_runtime/render_dev_preflight.py
