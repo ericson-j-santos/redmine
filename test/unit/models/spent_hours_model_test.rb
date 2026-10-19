@@ -20,7 +20,7 @@
 require_relative '../../test_helper'
 
 class SpentHoursModelTest < ActiveSupport::TestCase
-  fixtures :issues, :time_entries, :users, :trackers, :issue_statuses, :projects, :roles, :members, :member_roles, :activities
+  fixtures :issues, :time_entries, :users, :trackers, :issue_statuses, :projects, :roles, :members, :member_roles, :enumerations
 
   def setup
     @issue = Issue.find(1)
@@ -30,6 +30,15 @@ class SpentHoursModelTest < ActiveSupport::TestCase
 
   def teardown
     User.current = nil
+  end
+
+  def test_time_entry_activity_uses_enumerations_fixture
+    activity = TimeEntryActivity.find(9)
+
+    assert_equal 'enumerations', TimeEntryActivity.table_name
+    assert_equal 'TimeEntryActivity', activity.type
+    assert_equal 'Design', activity.name
+    assert_predicate activity, :active?
   end
 
   def test_issue_spent_hours_with_no_time_entries

@@ -18,6 +18,7 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 require_relative '../test_helper'
+require 'csv'
 
 class SpentHoursIntegrationTest < Redmine::IntegrationTest
   fixtures :projects, :users, :roles, :members, :member_roles, :issues, :time_entries, :trackers, :issue_statuses
@@ -40,9 +41,19 @@ class SpentHoursIntegrationTest < Redmine::IntegrationTest
   end
 
   def test_issues_index_with_filters_and_spent_hours_sort
-    get '/issues?sort=spent_hours:desc&set_filter=1&f=status_id&op=o&v=1'
+    get '/issues', params: {
+      sort: 'spent_hours:desc', set_filter: '1',
+      f: ['status_id'], op: {'status_id' => 'o'}, v: {'status_id' => []}
+    }
     assert_response :success
     assert_template 'issues/index'
+    assert_equal ['status_id'], request.query_parameters.fetch('f')
+    assert_equal 'o', request.query_parameters.fetch('op').fetch('status_id')
+    assert_select 'table.issues tr.issue', minimum: 1 do |rows|
+      rows.each do |row|
+        assert_not Issue.find(row['id'].delete_prefix('issue-')).closed?
+      end
+    end
   end
 
   def test_issues_index_with_pagination_and_spent_hours_sort
@@ -71,20 +82,27 @@ class SpentHoursIntegrationTest < Redmine::IntegrationTest
   end
 
   def test_issues_csv_export_with_spent_hours_sort
-    get '/issues.csv?sort=spent_hours:desc&c=subject&c=spent_hours'
+    get '/issues.csv', params: {sort: 'spent_hours:desc', c: ['subject', 'spent_hours']}
     assert_response :success
     assert_equal 'text/csv', response.media_type
+    assert_equal ['subject', 'spent_hours'], request.query_parameters.fetch('c')
+    assert_operator CSV.parse(response.body).length, :>, 1
   end
 
   def test_issues_index_with_custom_columns_including_spent_hours
-    get '/issues?c=subject&c=spent_hours&c=total_spent_hours'
+    get '/issues', params: {c: ['subject', 'spent_hours', 'total_spent_hours']}
     assert_response :success
+    assert_equal ['subject', 'spent_hours', 'total_spent_hours'], request.query_parameters.fetch('c')
+    assert_select 'table.issues th.subject', 1
+    assert_select 'table.issues th.spent_hours', 1
+    assert_select 'table.issues th.total_spent_hours', 1
   end
 
   def test_issues_with_invalid_sort_parameter_fallback
     get '/issues?sort=invalid_column:desc'
     assert_response :success
     assert_template 'issues/index'
+    assert_select 'table.issues tr.issue', minimum: 1
   end
 
   def test_authenticated_user_spent_hours_sort
@@ -102,12 +120,17 @@ class SpentHoursIntegrationTest < Redmine::IntegrationTest
     log_user('jsmith', 'jsmith')
 
     # First request
+    counts_before = [Issue.count, TimeEntry.count]
     get '/issues?sort=spent_hours:desc&per_page=5'
     assert_response :success
+    first_ids = response.parsed_body.css('table.issues tr.issue').map {|row| row['id']}
+    assert_not_empty first_ids
 
-    # Second request with same parameters
+    # The same read must preserve ordering and must not create records.
     get '/issues?sort=spent_hours:desc&per_page=5'
     assert_response :success
+    assert_equal first_ids, response.parsed_body.css('table.issues tr.issue').map {|row| row['id']}
+    assert_equal counts_before, [Issue.count, TimeEntry.count]
   end
 
   def test_spent_hours_sort_with_subproject_filter
