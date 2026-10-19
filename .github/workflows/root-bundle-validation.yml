@@ -4,6 +4,7 @@ on:
   push:
     branches: ['dev/reqsys-e2e-redmine-6.1.4-20260928']
     paths:
+      - 'test/**'
       - 'Gemfile'
       - 'Gemfile.lock'
       - 'render_runtime/root_bundle_check.py'

@@ -84,5 +84,29 @@ class RootBundlePolicyTests(unittest.TestCase):
         version = target.require_metadata_only_change(lock, lock)
         self.assertIn(version.split(".")[:2], (["3", "3"], ["3", "4"]))
 
+    def test_spent_hours_suites_run_on_test_changes(self):
+        import ast
+        from pathlib import Path
+
+        root = Path(__file__).resolve().parents[2]
+        workflow = (root / ".github/workflows/root-bundle-validation.yml").read_text(encoding="utf-8")
+        trigger = workflow.split("\npermissions:", 1)[0]
+        self.assertIn("on:\n  push:\n", trigger)
+        self.assertIn("      - 'test/**'\n", trigger)
+        tree = ast.parse((root / "render_runtime/root_bundle_check.py").read_text(encoding="utf-8"))
+        suites = [
+            ast.literal_eval(node.iter)
+            for node in ast.walk(tree)
+            if isinstance(node, ast.For)
+            and isinstance(node.target, ast.Tuple)
+            and [getattr(item, "id", None) for item in node.target.elts] == ["suite", "path"]
+        ]
+        self.assertEqual(suites, [(
+            ("attachment", "test/unit/attachment_test.rb"),
+            ("mailer", "test/unit/mailer_test.rb"),
+            ("spent_hours_model", "test/unit/models/spent_hours_model_test.rb"),
+            ("spent_hours_integration", "test/integration/spent_hours_integration_test.rb"),
+        )])
+
 if __name__ == "__main__":
     unittest.main()
