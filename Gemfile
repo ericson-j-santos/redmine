@@ -2,18 +2,18 @@ source 'https://rubygems.org'
 
 ruby '>= 3.2.0', '< 3.5.0'
 
-gem 'rails', '8.0.3'
+gem 'rails', '8.0.5.1'
 gem 'rouge', '~> 4.5'
 gem 'mini_mime', '~> 1.1.0'
 gem "actionpack-xml_parser"
 gem 'roadie-rails', '~> 3.3.0'
 gem 'marcel'
-gem 'mail', '~> 2.8.1'
-gem 'nokogiri', '~> 1.18.3'
+gem 'mail', '2.9.1'
+gem 'nokogiri', '~> 1.19.4'
 gem 'i18n', '~> 1.14.1'
 gem 'rbpdf', '~> 1.21.4'
 gem 'addressable'
-gem 'rubyzip', '~> 3.1.1'
+gem 'rubyzip', '3.4.1'
 gem 'propshaft', '~> 1.1.0'
 gem 'rack', '>= 3.1.3'
 gem 'pg', '~> 1.5.3'
@@ -84,7 +84,7 @@ if File.exist?(database_file)
       when /postgresql/
         next # pg is already declared above for the existing runtime.
       when /sqlite3/
-        gem 'sqlite3', '~> 2.7.4'
+        gem 'sqlite3', '~> 2.9.6'
       when /sqlserver/
         gem 'tiny_tds', '~> 2.1.2'
         gem 'activerecord-sqlserver-adapter', '~> 8.0.8'

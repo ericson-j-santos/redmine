@@ -42,5 +42,5 @@ jobs:
           timeout --kill-after=10s 120s sudo -n apt-get -o Acquire::Retries=1 update
           timeout --kill-after=10s 120s sudo -n apt-get -y --no-install-recommends install imagemagick
           timeout 10s convert -version
-      - name: Resolve candidate and exercise the real root application
-        run: python3 render_runtime/root_bundle_check.py candidate
+      - name: Validate the committed frozen lock and real root application
+        run: python3 render_runtime/root_bundle_check.py verify

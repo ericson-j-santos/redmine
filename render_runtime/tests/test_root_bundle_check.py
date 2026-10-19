@@ -39,6 +39,12 @@ class RootBundlePolicyTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             target.require_suite(text)
 
+    def test_real_frozen_rejection_is_required(self):
+        target.require_frozen_rejection(16, "Cannot update lockfile in frozen mode")
+        for code, output in ((0, "frozen"), (1, "network failure"), (16, "unrelated error")):
+            with self.assertRaisesRegex(ValueError, "FROZEN_CONTROL_FAILED"):
+                target.require_frozen_rejection(code, output)
+
 
 if __name__ == "__main__":
     unittest.main()

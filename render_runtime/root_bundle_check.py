@@ -57,6 +57,13 @@ def require_suite(text: str) -> dict[str, int]:
     return result
 
 
+def require_frozen_rejection(code: int, output: str) -> None:
+    """Só aceita a recusa real do Bundler por divergência Gemfile/lock."""
+    if (code != 16 or not isinstance(output, str)
+            or not any(word in output.lower() for word in ("frozen", "deployment mode"))):
+        raise ValueError("ROOT_FROZEN_CONTROL_FAILED")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("mode", choices=("candidate", "verify"))
@@ -96,7 +103,7 @@ def main() -> None:
         "  pool: 1\n  timeout: 5000\n", encoding="utf-8"
     )
 
-    def run(args: list[str], stage: str, timeout: int = 180) -> str:
+    def run(args: list[str], stage: str, timeout: int = 180, *, reject_frozen: bool = False) -> str:
         print(f"ROOT_BUNDLE_STAGE stage={stage} sha={sha}", flush=True)
         with tempfile.TemporaryFile(mode="w+", encoding="utf-8") as stream:
             proc = subprocess.Popen(args, cwd=root, env=env, stdout=stream,
@@ -114,7 +121,9 @@ def main() -> None:
             stream.seek(0)
             output = stream.read().replace(secret, "[REDACTED]")
         print("\n".join(output.splitlines()[-100:]), flush=True)
-        if code:
+        if reject_frozen:
+            require_frozen_rejection(code, output)
+        elif code:
             raise SystemExit(f"ROOT_BUNDLE_FAILED stage={stage} exit={code}")
         return output
 
@@ -135,6 +144,20 @@ def main() -> None:
     if (root / "Gemfile.lock").read_bytes() != initial_lock:
         raise SystemExit("ROOT_LOCK_CHANGED_DURING_INSTALL")
     run(["bundle", "check"], "frozen_replay", 30)
+    gemfile = root / "Gemfile"
+    before_control = gemfile.read_bytes()
+    pin = b"gem 'rails', '8.0.5.1'"
+    if before_control.count(pin) != 1:
+        raise SystemExit("ROOT_FROZEN_CONTROL_PIN_MISSING")
+    try:
+        gemfile.write_bytes(before_control.replace(pin, b"gem 'rails', '8.0.3'"))
+        run(["bundle", "install", "--local"], "frozen_negative_control", 30,
+            reject_frozen=True)
+    finally:
+        gemfile.write_bytes(before_control)
+    if (root / "Gemfile.lock").read_bytes() != initial_lock:
+        raise SystemExit("ROOT_LOCK_CHANGED_BY_NEGATIVE_CONTROL")
+    run(["bundle", "check"], "restored_frozen_replay", 30)
     run(["bundle", "exec", "bundle", "audit", "check", "--update"], "audit", 120)
     run(["bundle", "exec", "rails", "db:migrate"], "migrate", 120)
     suites = {}
