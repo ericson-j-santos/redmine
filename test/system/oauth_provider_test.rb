@@ -59,7 +59,7 @@ class OauthProviderSystemTest < ApplicationSystemTestCase
       if code = req.params['code'].presence
         # exchange it for token
         token = client.auth_code.get_token(code, redirect_uri: redirect_uri)
-        res.body = ["<html><body><p>Authorization succeeded, you may close this window now.</p></body></html>"]
+        res.body = ['<html><body><p id="oauth-authorization-succeeded">Authorization succeeded, you may close this window now.</p></body></html>']
       end
     end
 
@@ -81,8 +81,12 @@ class OauthProviderSystemTest < ApplicationSystemTestCase
 
       click_button 'Authorize'
 
-      # Wait for the real callback and token exchange before reading the grant.
-      find 'p', visible: true, text: /Authorization succeeded/
+      # Wait for the callback document and token exchange before reading the grant.
+      assert_current_path "#{redirect_uri}/", ignore_query: true
+      assert_selector 'p#oauth-authorization-succeeded',
+                      visible: true,
+                      exact_text: 'Authorization succeeded, you may close this window now.',
+                      count: 1
       assert grant = app.access_grants.last
       assert_equal 'view_issues view_project', grant.scopes.to_s
       assert token.present?
