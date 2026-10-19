@@ -675,6 +675,36 @@ class GitAdapterTest < ActiveSupport::TestCase
 
     def test_diff_path_invalid
       assert_equal [], @adapter.diff('invalid', '713f4944648826f5')
+      assert_equal [], @adapter.diff('invalid', '713f4944648826f5', '713f4944648826f5^')
+    end
+
+    def test_diff_path_without_changes
+      path = 'sources/watchers_controller.rb'
+      revision = '713f4944648826f558cf548222f813dabe7cbb04'
+      assert @adapter.cat(path, revision), 'The control path must exist'
+      assert_equal [], @adapter.diff(path, revision)
+    end
+
+    def test_diff_patch_preserves_commit_metadata_and_replay
+      revision = '713f4944648826f558cf548222f813dabe7cbb04'
+      diff = @adapter.diff('README', revision)
+      assert_kind_of Array, diff
+      assert_match /\Acommit #{revision}\n/, diff.join
+      assert_match /^diff --git a\/README b\/README$/, diff.join
+      assert_match /^@@ /, diff.join
+      assert_equal diff, @adapter.diff('README', revision)
+
+      comparison = @adapter.diff('README', revision, "#{revision}^")
+      assert_match /\Adiff --git a\/README b\/README\n/, comparison.join
+      assert_match /^@@ /, comparison.join
+    end
+
+    def test_diff_root_commit
+      revision = '7234cb2750b63f47bff735edc50a1c0a433c2518'
+      diff = @adapter.diff('README', revision)
+      assert_match /\Acommit #{revision}\n/, diff.join
+      assert_match /^diff --git a\/README b\/README$/, diff.join
+      assert_match /^@@ /, diff.join
     end
 
     def test_diff_revision_invalid

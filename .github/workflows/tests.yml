@@ -53,6 +53,36 @@ jobs:
           db-type: ${{ matrix.db }}
           ruby-version: ${{ matrix.ruby }}
 
+      - name: Verify real Git diff regressions before the full suite
+        shell: python
+        run: |
+          import runpy
+          import subprocess
+
+          require_suite = runpy.run_path("render_runtime/root_bundle_check.py")["require_suite"]
+
+          revision = subprocess.check_output(
+              ["git", "--git-dir", "tmp/test/git_repository", "rev-parse", "--verify",
+               "713f4944648826f558cf548222f813dabe7cbb04^{commit}"],
+              text=True, timeout=10,
+          ).strip()
+          if revision != "713f4944648826f558cf548222f813dabe7cbb04":
+              raise SystemExit("GIT_DIFF_FIXTURE_MISSING")
+          for path in (
+              "lib/redmine/scm/adapters/git_adapter.rb",
+              "test/unit/lib/redmine/scm/adapters/git_adapter_test.rb",
+          ):
+              subprocess.run(["ruby", "-c", path], check=True, timeout=10)
+          result = subprocess.run(
+              ["bundle", "exec", "ruby", "-Itest",
+               "test/unit/lib/redmine/scm/adapters/git_adapter_test.rb", "--name", "/test_diff_/"],
+              text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=90,
+          )
+          print(result.stdout, flush=True)
+          if result.returncode:
+              raise SystemExit(result.returncode)
+          print(require_suite(result.stdout), flush=True)
+
       - name: Run tests
         run: |
           bin/rails test

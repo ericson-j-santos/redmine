@@ -357,6 +357,11 @@ module Redmine
               diff << line
             end
           end
+          # git show can print commit metadata even when the path has no patch.
+          if !identifier_to &&
+              diff.none? {|line| line.start_with?('diff --git ', 'diff --cc ', 'diff --combined ')}
+            return []
+          end
           diff
         rescue ScmCommandAborted
           nil
