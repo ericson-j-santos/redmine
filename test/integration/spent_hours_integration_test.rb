@@ -119,14 +119,14 @@ class SpentHoursIntegrationTest < Redmine::IntegrationTest
     get '/issues?sort=spent_hours:desc&per_page=5'
     assert_response :success
 
-    first_ids = css_select('table.issues tr.issue').map {|row| row['id']}
+    first_ids = css_select('table.issues tr.issue').pluck('id')
     assert first_ids.any?, 'Replay must compare actual persisted issues'
     counts_before = [Issue.count, TimeEntry.count]
 
     # Second request with same parameters
     get '/issues?sort=spent_hours:desc&per_page=5'
     assert_response :success
-    assert_equal first_ids, css_select('table.issues tr.issue').map {|row| row['id']}
+    assert_equal first_ids, css_select('table.issues tr.issue').pluck('id')
     assert_equal counts_before, [Issue.count, TimeEntry.count]
   end
 
