@@ -7,6 +7,7 @@ import json
 import os
 from pathlib import Path
 import re
+import runpy
 import secrets
 import signal
 import subprocess
@@ -117,7 +118,7 @@ def require_observer_contract(gemfile: bytes, lock: bytes) -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("mode", choices=("candidate", "verify", "ruby-metadata", "observer-candidate"))
+    parser.add_argument("mode", choices=("candidate", "verify", "ruby-metadata", "observer-candidate", "database-candidate"))
     mode = parser.parse_args().mode
     if (os.environ.get("RUNNER_ENVIRONMENT") != "github-hosted"
             or os.environ.get("GITHUB_REPOSITORY") != "ericson-j-santos/redmine"
@@ -148,6 +149,7 @@ def main() -> None:
         "BUNDLE_FROZEN": "true" if mode == "verify" else "false",
         "BUNDLE_DEPLOYMENT": "false", "RAILS_ENV": "test", "SECRET_KEY_BASE": secret,
         "REDMINE_LANG": "en", "RAILS_MAX_THREADS": "1", "CI": "1",
+        "RUNNER_TEMP": str(base),
     })
     (root / "config/database.yml").write_text(
         "test:\n  adapter: sqlite3\n  database: db/root_bundle_test.sqlite3\n"
@@ -216,7 +218,22 @@ def main() -> None:
         ))), flush=True)
         print("ROOT_OBSERVER_NATIVE_LOCK_SHA256=" + hashlib.sha256(updated_lock).hexdigest(), flush=True)
         print("ROOT_OBSERVER_NATIVE_LOCK_BLOB=" + blob_sha(updated_lock), flush=True)
-    if mode in ("observer-candidate", "verify"):
+    if mode == "database-candidate":
+        database_contract = runpy.run_path(str(root / "render_runtime/database_bundle_contract.py"))
+        target = root / "Gemfile"
+        original_lock = (root / "Gemfile.lock").read_bytes()
+        if blob_sha(original_lock) != database_contract["SOURCE_LOCK_BLOB"]:
+            raise SystemExit("ROOT_DATABASE_LOCK_SOURCE_CHANGED")
+        target.write_bytes(database_contract["candidate_gemfile"](target.read_bytes()))
+        run(["ruby", "-e", database_contract["BUNDLER_DSL_PROBE"]],
+            "database_gemfile_matrix_contract", 30)
+        # Resolver nativo, sem --update; a verificação normal permanece congelada.
+        run(["bundle", "lock"], "database_resolve", 180)
+        updated_lock = (root / "Gemfile.lock").read_bytes()
+        database_contract["require_database_only_additions"](original_lock, updated_lock)
+        database_contract["require_database_contract"](updated_lock)
+        print("ROOT_DATABASE_ADDITIVE_LOCK_OK", flush=True)
+    if mode in ("observer-candidate", "database-candidate", "verify"):
         require_observer_contract((root / "Gemfile").read_bytes(),
                                   (root / "Gemfile.lock").read_bytes())
     initial_lock = (root / "Gemfile.lock").read_bytes()
@@ -239,7 +256,7 @@ def main() -> None:
     if (root / "Gemfile.lock").read_bytes() != initial_lock:
         raise SystemExit("ROOT_LOCK_CHANGED_BY_NEGATIVE_CONTROL")
     run(["bundle", "check"], "restored_frozen_replay", 30)
-    if mode in ("observer-candidate", "verify"):
+    if mode in ("observer-candidate", "database-candidate", "verify"):
         run(["bundle", "exec", "ruby", "-e",
              "require 'active_support'; require 'factory_bot'; "
              "abort 'OBSERVER_NOT_RESOLVED' unless Gem.loaded_specs.fetch('observer').version.to_s == '0.1.2'; "
@@ -255,6 +272,21 @@ def main() -> None:
         if (root / "Gemfile.lock").read_bytes() != initial_lock:
             raise SystemExit("ROOT_OBSERVER_CONTROL_CHANGED_LOCK")
         run(["bundle", "check"], "observer_restored_replay", 30)
+    if mode == "database-candidate":
+        declaration = b"    gem 'mysql2', '~> 0.5.0', require: false\n"
+        if before_control.count(declaration) != 1:
+            raise SystemExit("ROOT_DATABASE_NEGATIVE_CONTROL_AMBIGUOUS")
+        try:
+            gemfile.write_bytes(before_control.replace(declaration, b"", 1))
+            run(["bundle", "install", "--local"], "database_frozen_negative_control", 30,
+                reject_frozen=True)
+        finally:
+            gemfile.write_bytes(before_control)
+        if (root / "Gemfile.lock").read_bytes() != initial_lock:
+            raise SystemExit("ROOT_DATABASE_CONTROL_CHANGED_LOCK")
+        run(["bundle", "check"], "database_restored_replay", 30)
+        run(["ruby", "-e", database_contract["BUNDLER_DSL_PROBE"]],
+            "database_contract_restored_replay", 30)
     run(["bundle", "exec", "bundle", "audit", "check", "--update"], "audit", 120)
     run(["bundle", "exec", "rails", "db:migrate"], "migrate", 120)
     suites = {}
@@ -269,8 +301,14 @@ def main() -> None:
         suites[suite] = require_suite(text)
     if (root / "Gemfile.lock").read_bytes() != initial_lock:
         raise SystemExit("ROOT_LOCK_CHANGED_DURING_TESTS")
+    if mode == "database-candidate":
+        print("ROOT_DATABASE_NATIVE_GEMFILE_JSON=" + json.dumps(gemfile.read_text()), flush=True)
+        print("ROOT_DATABASE_NATIVE_LOCK_JSON=" + json.dumps(initial_lock.decode()), flush=True)
+        print("ROOT_DATABASE_NATIVE_LOCK_SHA256=" + hashlib.sha256(initial_lock).hexdigest(), flush=True)
+        print("ROOT_DATABASE_NATIVE_LOCK_BLOB=" + blob_sha(initial_lock), flush=True)
     print(json.dumps({
-        "status": {"observer-candidate": "observer_candidate_validated_not_committed",
+        "status": {"database-candidate": "database_candidate_validated_not_committed",
+                   "observer-candidate": "observer_candidate_validated_not_committed",
                    "candidate": "candidate_validated_not_committed",
                    "ruby-metadata": "ruby_metadata_validated_not_committed",
                    "verify": "passed"}[mode],

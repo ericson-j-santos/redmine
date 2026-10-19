@@ -11,6 +11,8 @@ on:
       - 'render_runtime/tests/test_root_bundle_check.py'
       - '.github/workflows/root-bundle-validation.yml'
       - 'render_runtime/tests/test_observer_contract.py'
+      - 'render_runtime/database_bundle_contract.py'
+      - 'render_runtime/tests/test_database_bundle_contract.py'
 
 permissions:
   contents: read
@@ -41,15 +43,19 @@ jobs:
           bundler-cache: false
       - name: Validate source and policy regressions
         run: |
-          python3 -m py_compile render_runtime/root_bundle_check.py
+          python3 -m py_compile render_runtime/root_bundle_check.py render_runtime/database_bundle_contract.py
           python3 -m unittest discover -s render_runtime/tests -p 'test_root_bundle_check.py' -v
           python3 -m unittest discover -s render_runtime/tests -p 'test_observer_contract.py' -v
-      - name: Supply thumbnail dependency without weakening image policy
+          python3 -m unittest discover -s render_runtime/tests -p 'test_database_bundle_contract.py' -v
+      - name: Supply image and database build dependencies
         run: |
           set -euo pipefail
           test "${RUNNER_ENVIRONMENT}" = github-hosted
           timeout --kill-after=10s 120s sudo -n apt-get -o Acquire::Retries=1 update
-          timeout --kill-after=10s 120s sudo -n apt-get -y --no-install-recommends install imagemagick
+          timeout --kill-after=10s 120s sudo -n apt-get -y --no-install-recommends install imagemagick default-libmysqlclient-dev
           timeout 10s convert -version
       - name: Validate the committed frozen lock and real root application
         run: python3 render_runtime/root_bundle_check.py verify
+      - name: Resolve and validate the isolated database bundle candidate
+        if: ${{ matrix.ruby == '3.3' }}
+        run: python3 render_runtime/root_bundle_check.py database-candidate
