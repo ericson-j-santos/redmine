@@ -3,3 +3,10 @@ production:
   database: <%= Rails.root.join("tmp", "reqsys_redmine_e2e.sqlite3") %>
   pool: <%= ENV.fetch("RAILS_MAX_THREADS", "5") %>
   timeout: 5000
+
+# Banco exclusivo dos testes upstream; nunca reutiliza o SQLite do lifecycle.
+test:
+  adapter: sqlite3
+  database: <%= Rails.root.join("tmp", "reqsys_dependency_test.sqlite3") %>
+  pool: 1
+  timeout: 5000

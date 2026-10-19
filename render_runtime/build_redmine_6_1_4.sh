@@ -56,6 +56,9 @@ test "$(git -C "${REQSYS_ROOT}" rev-parse "${HARNESS_SOURCE_SHA}:scripts/redmine
 git -C "${REQSYS_ROOT}" show "${HARNESS_SOURCE_SHA}:scripts/redmine_lifecycle_real_e2e.py" > "${HARNESS_PATH}"
 test "$(git -C "${REQSYS_ROOT}" hash-object "${HARNESS_PATH}")" = "${HARNESS_BLOB_SHA}"
 
+STAGE="dependency_pins"
+python3 "${ROOT}/render_runtime/security_dependencies.py" patch
+
 STAGE="ruby_dependencies"
 cp "${ROOT}/render_runtime/database.yml" "${REDMINE_ROOT}/config/database.yml"
 cd "${REDMINE_ROOT}"
@@ -81,6 +84,23 @@ STAGE="isolated_bootstrap"
 RAILS_ENV=production REDMINE_LANG=en bundle exec rake redmine:load_default_data
 RAILS_ENV=production bundle exec rails runner "${ROOT}/render_runtime/bootstrap.rb"
 RAILS_ENV=production bundle exec rake assets:precompile
+
+
+# Dependency compatibility is exercised in a separate disposable test database.
+# Both upstream suites must actually run; their summaries and loaded versions
+# are checked independently by Python. Mailer uses Rails' test delivery adapter.
+STAGE="dependency_audit"
+bundle exec bundle audit check --update
+STAGE="dependency_compatibility"
+RAILS_ENV=test bundle exec rake db:schema:load
+RAILS_ENV=test bundle exec ruby -Itest test/unit/attachment_test.rb \
+  | tee tmp/reqsys-attachment-compat.log
+RAILS_ENV=test bundle exec ruby -Itest test/unit/mailer_test.rb \
+  | tee tmp/reqsys-mailer-compat.log
+bundle exec ruby -rjson -rmail -rzip -rsqlite3 \
+  -e 'puts JSON.generate(%w[mail rubyzip sqlite3].to_h { |n| [n, Gem.loaded_specs.fetch(n).version.to_s] })' \
+  > tmp/reqsys-loaded-gems.json
+python3 "${ROOT}/render_runtime/security_dependencies.py" verify-compatibility
 
 STAGE="python_dependencies"
 python3 -m venv "${REQSYS_VENV}"
@@ -174,6 +194,8 @@ with target.open("x", encoding="utf-8") as output:
 if json.loads(target.read_text(encoding="utf-8")) != payload:
     raise SystemExit("E2E_EVIDENCE_READBACK_FAILED")
 PY
+
+python3 "${ROOT}/render_runtime/security_dependencies.py" verify-compatibility
 
 STAGE="legacy_start_compatibility"
 # Relative alias created only after gates pass. No existing directory is replaced.
