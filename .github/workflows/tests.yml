@@ -166,8 +166,32 @@ jobs:
           raise SystemExit(result.returncode)
 
       - name: Run autoload test
+        shell: python
         run: |
-          bin/rails test:autoload
+          import os
+          import re
+          import secrets
+          import subprocess
+
+          test_secret = secrets.token_hex(64)
+          result = subprocess.run(
+              ["bin/rails", "test:autoload"],
+              text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=120,
+              env=dict(os.environ, RAILS_ENV="test", SECRET_KEY_BASE=test_secret, BUNDLE_FROZEN="true"),
+          )
+          output = result.stdout.replace(test_secret, "[REDACTED]")
+          print(output, flush=True)
+          if result.returncode:
+              raise SystemExit(result.returncode)
+          summaries = re.findall(
+              r"(?m)^\s*(\d+) runs, (\d+) assertions, (\d+) failures, (\d+) errors, (\d+) skips\s*$",
+              output,
+          )
+          if len(summaries) != 1:
+              raise SystemExit("AUTOLOAD_SUITE_SUMMARY_INVALID")
+          runs, assertions, failures, errors, skips = map(int, summaries[0])
+          if runs < 1 or assertions < 1 or failures or errors or skips:
+              raise SystemExit("AUTOLOAD_SUITE_NOT_PASSED")
 
   system-tests:
     name: system test

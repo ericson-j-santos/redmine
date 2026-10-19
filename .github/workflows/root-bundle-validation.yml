@@ -10,6 +10,8 @@ on:
       - 'render_runtime/root_bundle_check.py'
       - 'render_runtime/tests/test_root_bundle_check.py'
       - '.github/workflows/root-bundle-validation.yml'
+      - '.github/workflows/tests.yml'
+      - '.github/actions/setup-redmine/action.yml'
       - 'render_runtime/tests/test_observer_contract.py'
       - 'render_runtime/database_bundle_contract.py'
       - 'render_runtime/tests/test_database_bundle_contract.py'
