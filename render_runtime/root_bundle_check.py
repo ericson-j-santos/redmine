@@ -218,8 +218,9 @@ def main() -> None:
         ))), flush=True)
         print("ROOT_OBSERVER_NATIVE_LOCK_SHA256=" + hashlib.sha256(updated_lock).hexdigest(), flush=True)
         print("ROOT_OBSERVER_NATIVE_LOCK_BLOB=" + blob_sha(updated_lock), flush=True)
-    if mode == "database-candidate":
+    if mode in ("database-candidate", "verify"):
         database_contract = runpy.run_path(str(root / "render_runtime/database_bundle_contract.py"))
+    if mode == "database-candidate":
         target = root / "Gemfile"
         original_lock = (root / "Gemfile.lock").read_bytes()
         if blob_sha(original_lock) != database_contract["SOURCE_LOCK_BLOB"]:
@@ -233,6 +234,10 @@ def main() -> None:
         database_contract["require_database_only_additions"](original_lock, updated_lock)
         database_contract["require_database_contract"](updated_lock)
         print("ROOT_DATABASE_ADDITIVE_LOCK_OK", flush=True)
+    if mode == "verify":
+        database_contract["require_database_contract"]((root / "Gemfile.lock").read_bytes())
+        run(["ruby", "-e", database_contract["BUNDLER_DSL_PROBE"]],
+            "database_gemfile_matrix_contract", 30)
     if mode in ("observer-candidate", "database-candidate", "verify"):
         require_observer_contract((root / "Gemfile").read_bytes(),
                                   (root / "Gemfile.lock").read_bytes())
@@ -272,7 +277,7 @@ def main() -> None:
         if (root / "Gemfile.lock").read_bytes() != initial_lock:
             raise SystemExit("ROOT_OBSERVER_CONTROL_CHANGED_LOCK")
         run(["bundle", "check"], "observer_restored_replay", 30)
-    if mode == "database-candidate":
+    if mode in ("database-candidate", "verify"):
         declaration = b"    gem 'mysql2', '~> 0.5.0', require: false\n"
         if before_control.count(declaration) != 1:
             raise SystemExit("ROOT_DATABASE_NEGATIVE_CONTROL_AMBIGUOUS")

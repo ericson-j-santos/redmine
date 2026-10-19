@@ -16,7 +16,7 @@ runs:
       shell: bash
       run: |
         sudo apt-get update
-        sudo apt-get install --yes --quiet ghostscript gsfonts locales bzr cvs
+        sudo apt-get install --yes --quiet ghostscript gsfonts locales bzr cvs default-libmysqlclient-dev
         sudo locale-gen en_US # for bazaar non ascii test
 
     - name: Allow imagemagick to read PDF files
@@ -55,6 +55,7 @@ runs:
       uses: ruby/setup-ruby@v1
       with:
         ruby-version: ${{ inputs.ruby-version }}
+        bundler: '2.6.7'
         bundler-cache: true
 
     - name: Run prepare test environment

@@ -113,6 +113,16 @@ end
 
 group :test do
   gem 'observer', '0.1.2', require: false
+  # Keep the frozen test bundle stable across SQLite, PostgreSQL and MySQL.
+  unless Array(adapters).any? {|adapter| /sqlite3/.match?(adapter.strip)}
+    gem 'sqlite3', '~> 2.9.6', require: false
+  end
+  unless Array(adapters).any? {|adapter| /mysql2/.match?(adapter.strip)}
+    gem 'mysql2', '~> 0.5.0', require: false
+  end
+  unless Array(adapters).any? {|adapter| /mysql2|trilogy/.match?(adapter.strip)}
+    gem 'with_advisory_lock', require: false
+  end
   gem "rails-dom-testing", '>= 2.3.0'
   gem 'mocha', '>= 2.0.1'
   gem 'simplecov', '~> 0.22.0', :require => false

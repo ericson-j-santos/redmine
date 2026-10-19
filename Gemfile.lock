@@ -218,6 +218,8 @@ GEM
       ruby2_keywords (>= 0.0.5)
     multi_xml (0.9.1)
       bigdecimal (>= 3.1, < 5)
+    mysql2 (0.5.7)
+      bigdecimal
     net-http (0.10.0)
       net-protocol (>= 0.3.0)
       uri (>= 0.11.1)
@@ -490,6 +492,8 @@ GEM
       base64
       websocket-extensions (>= 0.1.0)
     websocket-extensions (0.1.5)
+    with_advisory_lock (7.6.0)
+      activerecord (>= 7.2)
     xpath (3.2.0)
       nokogiri (~> 1.8)
     yard (0.9.45)
@@ -529,6 +533,7 @@ DEPENDENCIES
   mini_magick (~> 5.2.0)
   mini_mime (~> 1.1.0)
   mocha (>= 2.0.1)
+  mysql2 (~> 0.5.0)
   net-imap (~> 0.5.7)
   net-ldap (~> 0.17.0)
   net-pop (~> 0.1.2)
@@ -569,6 +574,7 @@ DEPENDENCIES
   svg_sprite
   tzinfo-data
   webmock (~> 3.23.0)
+  with_advisory_lock
   yard
 
 RUBY VERSION

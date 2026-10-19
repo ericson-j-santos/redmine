@@ -56,6 +56,3 @@ jobs:
           timeout 10s convert -version
       - name: Validate the committed frozen lock and real root application
         run: python3 render_runtime/root_bundle_check.py verify
-      - name: Resolve and validate the isolated database bundle candidate
-        if: ${{ matrix.ruby == '3.3' }}
-        run: python3 render_runtime/root_bundle_check.py database-candidate

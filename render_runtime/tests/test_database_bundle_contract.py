@@ -118,5 +118,17 @@ class DatabaseBundleContractTests(unittest.TestCase):
                 target.candidate_gemfile(changed)
 
 
+    def test_committed_contract_is_verified_without_resolution(self):
+        from pathlib import Path
+
+        root = Path(__file__).resolve().parents[2]
+        target.require_database_contract((root / "Gemfile.lock").read_bytes())
+        gemfile = (root / "Gemfile").read_bytes()
+        self.assertEqual(gemfile.count(target.DATABASE_TEST_ADDITIONS), 1)
+        self.assertIn(target.OBSERVER_MARKER + target.DATABASE_TEST_ADDITIONS, gemfile)
+        workflow = (root / ".github/workflows/root-bundle-validation.yml").read_text()
+        self.assertIn("run: python3 render_runtime/root_bundle_check.py verify", workflow)
+        self.assertNotIn("run: python3 render_runtime/root_bundle_check.py database-candidate", workflow)
+
 if __name__ == "__main__":
     unittest.main()
