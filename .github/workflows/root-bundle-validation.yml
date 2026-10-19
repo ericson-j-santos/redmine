@@ -2,7 +2,7 @@ name: Root bundle validation
 
 on:
   push:
-    branches: ['dev/reqsys-e2e-redmine-6.1.4-20260928']
+    branches: ['dev/reqsys-e2e-redmine-6.1.4-20260928', 'fix/todo7-spent-hours-contracts-20261019']
     paths:
       - 'Gemfile'
       - 'Gemfile.lock'
@@ -10,6 +10,10 @@ on:
       - 'render_runtime/tests/test_root_bundle_check.py'
       - '.github/workflows/root-bundle-validation.yml'
       - 'render_runtime/tests/test_observer_contract.py'
+      - 'render_runtime/tests/test_spent_hours_contract.py'
+      - 'test/unit/models/spent_hours_model_test.rb'
+      - 'test/integration/spent_hours_integration_test.rb'
+      - 'test/fixtures/enumerations.yml'
 
 permissions:
   contents: read
@@ -43,6 +47,7 @@ jobs:
           python3 -m py_compile render_runtime/root_bundle_check.py
           python3 -m unittest discover -s render_runtime/tests -p 'test_root_bundle_check.py' -v
           python3 -m unittest discover -s render_runtime/tests -p 'test_observer_contract.py' -v
+          python3 -m unittest discover -s render_runtime/tests -p 'test_spent_hours_contract.py' -v
       - name: Supply thumbnail dependency without weakening image policy
         run: |
           set -euo pipefail

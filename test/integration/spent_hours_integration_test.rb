@@ -18,6 +18,7 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 require_relative '../test_helper'
+require 'csv'
 
 class SpentHoursIntegrationTest < Redmine::IntegrationTest
   fixtures :projects, :users, :roles, :members, :member_roles, :issues, :time_entries, :trackers, :issue_statuses
@@ -40,7 +41,10 @@ class SpentHoursIntegrationTest < Redmine::IntegrationTest
   end
 
   def test_issues_index_with_filters_and_spent_hours_sort
-    get '/issues?sort=spent_hours:desc&set_filter=1&f=status_id&op=o&v=1'
+    get '/issues', params: {
+      sort: 'spent_hours:desc', set_filter: '1',
+      f: ['status_id'], op: {'status_id' => 'o'}, v: {'status_id' => []}
+    }
     assert_response :success
     assert_template 'issues/index'
   end
@@ -71,14 +75,20 @@ class SpentHoursIntegrationTest < Redmine::IntegrationTest
   end
 
   def test_issues_csv_export_with_spent_hours_sort
-    get '/issues.csv?sort=spent_hours:desc&c=subject&c=spent_hours'
+    get '/issues.csv', params: {sort: 'spent_hours:desc', c: ['subject', 'spent_hours']}
     assert_response :success
     assert_equal 'text/csv', response.media_type
+    rows = CSV.parse(response.body, headers: true)
+    assert rows.any?, 'CSV must contain persisted issues'
+    assert_equal 2, rows.headers.size
   end
 
   def test_issues_index_with_custom_columns_including_spent_hours
-    get '/issues?c=subject&c=spent_hours&c=total_spent_hours'
+    get '/issues', params: {c: ['subject', 'spent_hours', 'total_spent_hours']}
     assert_response :success
+    assert_select 'table.issues th.subject'
+    assert_select 'table.issues th.spent_hours'
+    assert_select 'table.issues th.total_spent_hours'
   end
 
   def test_issues_with_invalid_sort_parameter_fallback
@@ -105,9 +115,15 @@ class SpentHoursIntegrationTest < Redmine::IntegrationTest
     get '/issues?sort=spent_hours:desc&per_page=5'
     assert_response :success
 
+    first_ids = css_select('table.issues tr.issue').map {|row| row['id']}
+    assert first_ids.any?, 'Replay must compare actual persisted issues'
+    counts_before = [Issue.count, TimeEntry.count]
+
     # Second request with same parameters
     get '/issues?sort=spent_hours:desc&per_page=5'
     assert_response :success
+    assert_equal first_ids, css_select('table.issues tr.issue').map {|row| row['id']}
+    assert_equal counts_before, [Issue.count, TimeEntry.count]
   end
 
   def test_spent_hours_sort_with_subproject_filter

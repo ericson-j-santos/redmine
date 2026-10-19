@@ -115,14 +115,53 @@ def require_observer_contract(gemfile: bytes, lock: bytes) -> None:
             raise ValueError("ROOT_OBSERVER_LOCK_INVALID")
 
 
+DEV_REF = "refs/heads/dev/reqsys-e2e-redmine-6.1.4-20260928"
+SPENT_HOURS_REF = "refs/heads/fix/todo7-spent-hours-contracts-20261019"
+SPENT_HOURS_SUITES = {
+    "spent_hours_model": ("test/unit/models/spent_hours_model_test.rb", 15),
+    "spent_hours_integration": ("test/integration/spent_hours_integration_test.rb", 19),
+}
+
+
+def allowed_ref(ref: str | None, mode: str) -> bool:
+    """A branch isolada só pode validar; não pode resolver novas dependências."""
+    return ref == DEV_REF or (ref == SPENT_HOURS_REF and mode == "verify")
+
+
+def fixture_negative_source(raw: bytes) -> bytes:
+    """Reproduz a fixture inválida apenas na cópia descartável dos testes."""
+    marker = b":member_roles, :enumerations\n"
+    if raw.count(marker) != 1 or b":activities\n" in raw:
+        raise ValueError("SPENT_HOURS_FIXTURE_CONTRACT_INVALID")
+    return raw.replace(marker, b":member_roles, :activities\n", 1)
+
+
+def require_fixture_rejection(code: int, output: str) -> None:
+    summary = re.findall(
+        r"(?m)^\s*(\d+) runs, (\d+) assertions, (\d+) failures, (\d+) errors, (\d+) skips\s*$",
+        output,
+    )
+    if (code != 1 or "No fixture files found for activities" not in output
+            or summary != [("1", "0", "0", "1", "0")]):
+        raise ValueError("SPENT_HOURS_NEGATIVE_CONTROL_FAILED")
+
+
+def require_spent_hours_suite(name: str, text: str) -> dict[str, int]:
+    if name not in SPENT_HOURS_SUITES:
+        raise ValueError("SPENT_HOURS_SUITE_UNKNOWN")
+    result = require_suite(text)
+    if result["runs"] < SPENT_HOURS_SUITES[name][1]:
+        raise ValueError("SPENT_HOURS_COVERAGE_REDUCED")
+    return result
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("mode", choices=("candidate", "verify", "ruby-metadata", "observer-candidate"))
     mode = parser.parse_args().mode
     if (os.environ.get("RUNNER_ENVIRONMENT") != "github-hosted"
             or os.environ.get("GITHUB_REPOSITORY") != "ericson-j-santos/redmine"
-            or os.environ.get("GITHUB_REF") !=
-            "refs/heads/dev/reqsys-e2e-redmine-6.1.4-20260928"):
+            or not allowed_ref(os.environ.get("GITHUB_REF"), mode)):
         raise SystemExit("ROOT_BUNDLE_SCOPE_REJECTED")
     sha = os.environ.get("GITHUB_SHA", "")
     if not re.fullmatch(r"[0-9a-f]{40}", sha):
@@ -154,7 +193,8 @@ def main() -> None:
         "  pool: 1\n  timeout: 5000\n", encoding="utf-8"
     )
 
-    def run(args: list[str], stage: str, timeout: int = 180, *, reject_frozen: bool = False) -> str:
+    def run(args: list[str], stage: str, timeout: int = 180, *,
+            reject_frozen: bool = False, reject_fixture: bool = False) -> str:
         print(f"ROOT_BUNDLE_STAGE stage={stage} sha={sha}", flush=True)
         with tempfile.TemporaryFile(mode="w+", encoding="utf-8") as stream:
             proc = subprocess.Popen(args, cwd=root, env=env, stdout=stream,
@@ -174,6 +214,8 @@ def main() -> None:
         print("\n".join(output.splitlines()[-100:]), flush=True)
         if reject_frozen:
             require_frozen_rejection(code, output)
+        elif reject_fixture:
+            require_fixture_rejection(code, output)
         elif code:
             raise SystemExit(f"ROOT_BUNDLE_FAILED stage={stage} exit={code}")
         return output
@@ -262,6 +304,28 @@ def main() -> None:
         text = run(["bundle", "exec", "ruby", "-Itest", f"test/unit/{suite}_test.rb"],
                    suite, 180)
         suites[suite] = require_suite(text)
+    if mode == "verify":
+        model = root / SPENT_HOURS_SUITES["spent_hours_model"][0]
+        original_model = model.read_bytes()
+        try:
+            model.write_bytes(fixture_negative_source(original_model))
+            run(["bundle", "exec", "ruby", "-Itest",
+                 SPENT_HOURS_SUITES["spent_hours_model"][0], "-n",
+                 "test_issue_spent_hours_with_no_time_entries"],
+                "spent_hours_fixture_negative_control", 60, reject_fixture=True)
+        finally:
+            model.write_bytes(original_model)
+        if model.read_bytes() != original_model:
+            raise SystemExit("SPENT_HOURS_RESTORE_FAILED")
+        for name, (path, _) in SPENT_HOURS_SUITES.items():
+            text = run(["bundle", "exec", "ruby", "-Itest", path], name, 180)
+            suites[name] = require_spent_hours_suite(name, text)
+        print(json.dumps({
+            "sha": sha, "fixture_negative_control": True,
+            "source_blobs": {name: blob_sha((root / path).read_bytes())
+                             for name, (path, _) in SPENT_HOURS_SUITES.items()},
+            "scope": "root_source_isolated_not_deployed",
+        }, sort_keys=True), flush=True)
     if (root / "Gemfile.lock").read_bytes() != initial_lock:
         raise SystemExit("ROOT_LOCK_CHANGED_DURING_TESTS")
     print(json.dumps({

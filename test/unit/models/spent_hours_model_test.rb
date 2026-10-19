@@ -20,7 +20,7 @@
 require_relative '../../test_helper'
 
 class SpentHoursModelTest < ActiveSupport::TestCase
-  fixtures :issues, :time_entries, :users, :trackers, :issue_statuses, :projects, :roles, :members, :member_roles, :activities
+  fixtures :issues, :time_entries, :users, :trackers, :issue_statuses, :projects, :roles, :members, :member_roles, :enumerations
 
   def setup
     @issue = Issue.find(1)
