@@ -123,13 +123,13 @@ class SpentHoursIntegrationTest < Redmine::IntegrationTest
     counts_before = [Issue.count, TimeEntry.count]
     get '/issues?sort=spent_hours:desc&per_page=5'
     assert_response :success
-    first_ids = response.parsed_body.css('table.issues tr.issue').map {|row| row['id']}
+    first_ids = response.parsed_body.css('table.issues tr.issue').pluck('id')
     assert_not_empty first_ids
 
     # The same read must preserve ordering and must not create records.
     get '/issues?sort=spent_hours:desc&per_page=5'
     assert_response :success
-    assert_equal first_ids, response.parsed_body.css('table.issues tr.issue').map {|row| row['id']}
+    assert_equal first_ids, response.parsed_body.css('table.issues tr.issue').pluck('id')
     assert_equal counts_before, [Issue.count, TimeEntry.count]
   end
 

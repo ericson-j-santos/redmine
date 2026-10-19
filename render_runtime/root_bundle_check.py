@@ -258,8 +258,13 @@ def main() -> None:
     run(["bundle", "exec", "bundle", "audit", "check", "--update"], "audit", 120)
     run(["bundle", "exec", "rails", "db:migrate"], "migrate", 120)
     suites = {}
-    for suite in ("attachment", "mailer"):
-        text = run(["bundle", "exec", "ruby", "-Itest", f"test/unit/{suite}_test.rb"],
+    for suite, path in (
+        ("attachment", "test/unit/attachment_test.rb"),
+        ("mailer", "test/unit/mailer_test.rb"),
+        ("spent_hours_model", "test/unit/models/spent_hours_model_test.rb"),
+        ("spent_hours_integration", "test/integration/spent_hours_integration_test.rb"),
+    ):
+        text = run(["bundle", "exec", "ruby", "-Itest", path],
                    suite, 180)
         suites[suite] = require_suite(text)
     if (root / "Gemfile.lock").read_bytes() != initial_lock:
