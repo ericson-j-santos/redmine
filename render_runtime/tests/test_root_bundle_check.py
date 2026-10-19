@@ -46,5 +46,21 @@ class RootBundlePolicyTests(unittest.TestCase):
                 target.require_frozen_rejection(code, output)
 
 
+    def test_root_ruby_floor_matches_security_dependency_and_historical_jobs(self):
+        from pathlib import Path
+        import re
+
+        root = Path(__file__).resolve().parents[2]
+        gemfile = (root / "Gemfile").read_text(encoding="utf-8")
+        workflow = (root / ".github/workflows/linters.yml").read_text(encoding="utf-8")
+        self.assertIn("ruby '>= 3.3.0', '< 3.5.0'", gemfile)
+        for job in ("lint", "bundle-audit"):
+            match = re.search(rf"(?ms)^  {job}:\n(.*?)(?=^  [\w-]+:|\Z)", workflow)
+            self.assertIsNotNone(match)
+            versions = re.findall(r"ruby-version: ['\\\"]?([0-9]+\.[0-9]+)", match.group(1))
+            self.assertEqual(versions, ["3.3"])
+        self.assertIn("bundle exec rubocop --parallel", workflow)
+        self.assertIn("bundle exec bundle audit check --update", workflow)
+
 if __name__ == "__main__":
     unittest.main()

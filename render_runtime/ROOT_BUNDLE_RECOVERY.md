@@ -50,3 +50,18 @@ permanece sem deploy automático e nenhuma implantação foi realizada.
 
 Checkpoint canônico: ReqSys issue #1686 / TODO-7.
 Correlation ID: redmine-root-lock-20261019-todo7.
+
+## Compatibilidade Ruby após a atualização de segurança
+
+O job histórico 117909828962, no SHA d33f7072, comprovou que css_parser 3.3.0
+exige Ruby >= 3.3 e não instala no Ruby 3.2.11. A versão corrigida não é
+rebaixada para contornar a auditoria. O Gemfile agora impõe Ruby >= 3.3 e < 3.5;
+lint e bundle-audit usam 3.3. A matriz mantém todos os bancos e comandos de
+teste em 3.3/3.4, retirando apenas o intérprete 3.2 que deixou de ser suportado.
+Isso não constitui homologação automática da matriz nem altera Ruby no Render.
+
+Uma oitava regressão verifica o mínimo declarado e os dois jobs históricos;
+os controles com mínimo antigo ou CI em 3.2 falham. O lock permanece exatamente
+como gerado pelo Bundler, inclusive seu campo histórico RUBY VERSION; esse
+campo não substitui a observação do intérprete e a instalação congelada real.
+A mudança de requisito e todos os gates exigem nova prova no SHA final.
