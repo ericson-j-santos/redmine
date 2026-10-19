@@ -1,0 +1,46 @@
+name: Root bundle validation
+
+on:
+  push:
+    branches: ['dev/reqsys-e2e-redmine-6.1.4-20260928']
+    paths:
+      - 'Gemfile'
+      - 'Gemfile.lock'
+      - 'render_runtime/root_bundle_check.py'
+      - 'render_runtime/tests/test_root_bundle_check.py'
+      - '.github/workflows/root-bundle-validation.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: redmine-root-bundle-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  root-bundle:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: ruby/setup-ruby@651ff0d62c5c79bed6d53ec518387aae20e72c1a
+        with:
+          ruby-version: '3.3'
+          bundler: '2.6.7'
+          bundler-cache: false
+      - name: Validate source and policy regressions
+        run: |
+          python3 -m py_compile render_runtime/root_bundle_check.py
+          python3 -m unittest discover -s render_runtime/tests -p 'test_root_bundle_check.py' -v
+      - name: Supply thumbnail dependency without weakening image policy
+        run: |
+          set -euo pipefail
+          test "${RUNNER_ENVIRONMENT}" = github-hosted
+          timeout --kill-after=10s 120s sudo -n apt-get -o Acquire::Retries=1 update
+          timeout --kill-after=10s 120s sudo -n apt-get -y --no-install-recommends install imagemagick
+          timeout 10s convert -version
+      - name: Resolve candidate and exercise the real root application
+        run: python3 render_runtime/root_bundle_check.py candidate
