@@ -9,6 +9,7 @@ on:
       - 'render_runtime/root_bundle_check.py'
       - 'render_runtime/tests/test_root_bundle_check.py'
       - '.github/workflows/root-bundle-validation.yml'
+      - 'render_runtime/tests/test_observer_contract.py'
 
 permissions:
   contents: read
@@ -28,13 +29,14 @@ jobs:
           persist-credentials: false
       - uses: ruby/setup-ruby@651ff0d62c5c79bed6d53ec518387aae20e72c1a
         with:
-          ruby-version: '3.3'
+          ruby-version: '3.4'
           bundler: '2.6.7'
           bundler-cache: false
       - name: Validate source and policy regressions
         run: |
           python3 -m py_compile render_runtime/root_bundle_check.py
           python3 -m unittest discover -s render_runtime/tests -p 'test_root_bundle_check.py' -v
+          python3 -m unittest discover -s render_runtime/tests -p 'test_observer_contract.py' -v
       - name: Supply thumbnail dependency without weakening image policy
         run: |
           set -euo pipefail
@@ -42,5 +44,5 @@ jobs:
           timeout --kill-after=10s 120s sudo -n apt-get -o Acquire::Retries=1 update
           timeout --kill-after=10s 120s sudo -n apt-get -y --no-install-recommends install imagemagick
           timeout 10s convert -version
-      - name: Validate the committed frozen lock and real root application
-        run: python3 render_runtime/root_bundle_check.py verify
+      - name: Resolve observer-only candidate and prove Ruby 3.4 startup without publishing
+        run: python3 render_runtime/root_bundle_check.py observer-candidate

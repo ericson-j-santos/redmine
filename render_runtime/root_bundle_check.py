@@ -82,9 +82,42 @@ def require_metadata_only_change(original: bytes, updated: bytes) -> str:
     return version
 
 
+OBSERVER_GEMFILE_BLOB = "a75c8581db8556da531998e136eb9e3ec66a0f3c"
+OBSERVER_LOCK_BLOB = "74f0bf582977eafef79753a0ae63f11413cfd37c"
+OBSERVER_LINE = b"  gem 'observer', '0.1.2', require: false\n"
+
+
+def observer_candidate_gemfile(raw: bytes) -> bytes:
+    """Adiciona somente a dependência de teste à fonte conhecida."""
+    if blob_sha(raw) != OBSERVER_GEMFILE_BLOB:
+        raise ValueError("ROOT_OBSERVER_SOURCE_CHANGED")
+    marker = b"group :test do\n"
+    if raw.count(marker) != 1 or b"gem 'observer'" in raw:
+        raise ValueError("ROOT_OBSERVER_DECLARATION_AMBIGUOUS")
+    return raw.replace(marker, marker + OBSERVER_LINE, 1)
+
+
+def require_observer_only_change(original: bytes, updated: bytes) -> None:
+    """Nenhuma versão, plataforma, origem ou metadado existente pode mudar."""
+    for line in (b"    observer (0.1.2)\n", b"  observer (= 0.1.2)\n"):
+        if line in original or updated.count(line) != 1:
+            raise ValueError("ROOT_OBSERVER_LOCK_INVALID")
+        updated = updated.replace(line, b"", 1)
+    if updated != original:
+        raise ValueError("ROOT_OBSERVER_CHANGED_EXISTING_LOCK")
+
+
+def require_observer_contract(gemfile: bytes, lock: bytes) -> None:
+    if gemfile.count(OBSERVER_LINE) != 1 or b"group :test do\n" + OBSERVER_LINE not in gemfile:
+        raise ValueError("ROOT_OBSERVER_TEST_DEPENDENCY_MISSING")
+    for line in (b"    observer (0.1.2)\n", b"  observer (= 0.1.2)\n"):
+        if lock.count(line) != 1:
+            raise ValueError("ROOT_OBSERVER_LOCK_INVALID")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("mode", choices=("candidate", "verify", "ruby-metadata"))
+    parser.add_argument("mode", choices=("candidate", "verify", "ruby-metadata", "observer-candidate"))
     mode = parser.parse_args().mode
     if (os.environ.get("RUNNER_ENVIRONMENT") != "github-hosted"
             or os.environ.get("GITHUB_REPOSITORY") != "ericson-j-santos/redmine"
@@ -166,6 +199,26 @@ def main() -> None:
         print("ROOT_NATIVE_RUBY_METADATA=" + ruby_metadata, flush=True)
         print("ROOT_NATIVE_RUBY_LOCK_SHA256=" + hashlib.sha256(updated_lock).hexdigest(), flush=True)
         print("ROOT_NATIVE_RUBY_LOCK_BLOB=" + blob_sha(updated_lock), flush=True)
+    if mode == "observer-candidate":
+        target = root / "Gemfile"
+        original_lock = (root / "Gemfile.lock").read_bytes()
+        if blob_sha(original_lock) != OBSERVER_LOCK_BLOB:
+            raise SystemExit("ROOT_OBSERVER_LOCK_SOURCE_CHANGED")
+        target.write_bytes(observer_candidate_gemfile(target.read_bytes()))
+        # Native resolver keeps existing resolutions; no update/unfreeze in verify.
+        run(["bundle", "lock"], "observer_resolve", 180)
+        updated_lock = (root / "Gemfile.lock").read_bytes()
+        require_observer_only_change(original_lock, updated_lock)
+        import difflib
+        print("ROOT_OBSERVER_NATIVE_DIFF_JSON=" + json.dumps(list(difflib.unified_diff(
+            original_lock.decode().splitlines(True), updated_lock.decode().splitlines(True),
+            fromfile="Gemfile.lock.before", tofile="Gemfile.lock.after"
+        ))), flush=True)
+        print("ROOT_OBSERVER_NATIVE_LOCK_SHA256=" + hashlib.sha256(updated_lock).hexdigest(), flush=True)
+        print("ROOT_OBSERVER_NATIVE_LOCK_BLOB=" + blob_sha(updated_lock), flush=True)
+    if mode in ("observer-candidate", "verify"):
+        require_observer_contract((root / "Gemfile").read_bytes(),
+                                  (root / "Gemfile.lock").read_bytes())
     initial_lock = (root / "Gemfile.lock").read_bytes()
     env["BUNDLE_FROZEN"] = "true"
     run(["bundle", "install", "--jobs", "4", "--retry", "1"], "install", 240)
@@ -186,6 +239,22 @@ def main() -> None:
     if (root / "Gemfile.lock").read_bytes() != initial_lock:
         raise SystemExit("ROOT_LOCK_CHANGED_BY_NEGATIVE_CONTROL")
     run(["bundle", "check"], "restored_frozen_replay", 30)
+    if mode in ("observer-candidate", "verify"):
+        run(["bundle", "exec", "ruby", "-e",
+             "require 'active_support'; require 'factory_bot'; "
+             "abort 'OBSERVER_NOT_RESOLVED' unless Gem.loaded_specs.fetch('observer').version.to_s == '0.1.2'; "
+             "abort 'FACTORY_BOT_NOT_LOADED' unless defined?(FactoryBot::Factory); "
+             "puts 'ROOT_FACTORY_BOT_OBSERVER_BOOT_OK ruby=' + RUBY_VERSION"],
+            "factory_bot_observer_boot", 30)
+        try:
+            gemfile.write_bytes(before_control.replace(OBSERVER_LINE, b"", 1))
+            run(["bundle", "install", "--local"], "observer_frozen_negative_control", 30,
+                reject_frozen=True)
+        finally:
+            gemfile.write_bytes(before_control)
+        if (root / "Gemfile.lock").read_bytes() != initial_lock:
+            raise SystemExit("ROOT_OBSERVER_CONTROL_CHANGED_LOCK")
+        run(["bundle", "check"], "observer_restored_replay", 30)
     run(["bundle", "exec", "bundle", "audit", "check", "--update"], "audit", 120)
     run(["bundle", "exec", "rails", "db:migrate"], "migrate", 120)
     suites = {}
@@ -196,7 +265,8 @@ def main() -> None:
     if (root / "Gemfile.lock").read_bytes() != initial_lock:
         raise SystemExit("ROOT_LOCK_CHANGED_DURING_TESTS")
     print(json.dumps({
-        "status": {"candidate": "candidate_validated_not_committed",
+        "status": {"observer-candidate": "observer_candidate_validated_not_committed",
+                   "candidate": "candidate_validated_not_committed",
                    "ruby-metadata": "ruby_metadata_validated_not_committed",
                    "verify": "passed"}[mode],
         "sha": sha, "scope": "root_source_isolated_not_deployed",
