@@ -74,7 +74,7 @@ jobs:
           ):
               subprocess.run(["ruby", "-c", path], check=True, timeout=10)
           result = subprocess.run(
-              ["bundle", "exec", "ruby", "-Itest",
+              ["bin/rails", "test",
                "test/unit/lib/redmine/scm/adapters/git_adapter_test.rb", "--name", "/test_diff_/"],
               text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=90,
           )

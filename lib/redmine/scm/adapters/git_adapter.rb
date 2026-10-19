@@ -362,6 +362,7 @@ module Redmine
               diff.none? {|line| line.start_with?('diff --git ', 'diff --cc ', 'diff --combined ')}
             return []
           end
+
           diff
         rescue ScmCommandAborted
           nil
