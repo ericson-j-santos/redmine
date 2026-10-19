@@ -292,6 +292,13 @@ class EvidenceTests(unittest.TestCase):
             REQSYS_E2E_HARNESS_SHA="b84576f76fad584bc420cb447d046aaafdc775ba",
             REQSYS_E2E_HARNESS_BLOB="4008741f26abc4a1487978682ad53d17b9f20adc",
             REDMINE_VERSION="6.1.5.stable", REDMINE_PROJECT_ID="42")
+        self.identity = {
+            "schema_version": 1, "repository": "ericson-j-santos/redmine",
+            "source_sha": "c" * 40, "source_runtime_sha256": "d" * 64,
+            "provenance_method": "github_hosted_verified_copy",
+            "scope": "tracked_build_source_not_deployment_authorization",
+        }
+        self.env["REQSYS_REDMINE_SOURCE_IDENTITY"] = json.dumps(self.identity)
         self.payload = {
             "status": "passed", "secret_values_in_evidence": False,
             "reqsys_sha": self.env["REQSYS_E2E_SHA"],
@@ -316,6 +323,8 @@ class EvidenceTests(unittest.TestCase):
         self.assertEqual(readback["test_harness"]["blob_sha"],
                          self.env["REQSYS_E2E_HARNESS_BLOB"])
         self.assertEqual(readback["redmine"]["project_id"], 42)
+        self.assertEqual(readback["redmine_repo_sha"], "c" * 40)
+        self.assertEqual(readback["source_identity"], self.identity)
         self.assertEqual(readback["evidence_scope"],
                          "isolated_build_not_post_deploy_or_pc24x7")
 

@@ -72,6 +72,13 @@ de teste é um controle local, não uma instância Redmine. O job adicional no
 workflow `Lint` existente valida sintaxe Bash/Ruby/Python e executa essa suíte
 somente na branch DEV correspondente, sem secrets, cache novo ou artifacts.
 
+## Identidade da fonte e manifesto
+
+O contrato de proveniência e a conferência independente dos artefatos estão
+em [RELEASE_IDENTITY.md](RELEASE_IDENTITY.md). O build identifica o SHA Redmine
+na evidência pública e gera um manifesto verificável. Isso não substitui o
+despacho do commit exato, a proteção dos dados ou a validação pós-publicação.
+
 ## Estado operacional e aceite pendente
 
 O último estado observado do serviço `redmine-reqsys-e2e-dev-614` permanece Ruby

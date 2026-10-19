@@ -4,6 +4,7 @@ umask 077
 
 # The old entrypoint/start path is retained for the existing Render DEV service.
 ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)"
+export PYTHONDONTWRITEBYTECODE=1
 REDMINE_VERSION="6.1.5"
 EXPECTED_SHA256="4b653d8863c012fdb226aedf6f8a18bdfa08d04625d15e8aafbbc3c4f6b70144"
 REQSYS_SHA="9be16bfee3a3b8f9e3478e197e77d9231cdc4be6"
@@ -30,6 +31,8 @@ trap 'code=$?; printf "REDMINE_BUILD_FAILED stage=%s code=%s\n" "${STAGE}" "${co
 # Fail before download, bootstrap or data writes unless the isolated disposable
 # scope is explicitly configured. Atomic mkdir refuses ALL existing .runtime
 # entries, including symlinks; failed/repeated builds preserve their evidence.
+REQSYS_REDMINE_SOURCE_IDENTITY="$(python3 "${ROOT}/render_runtime/release_identity.py" capture)"
+export REQSYS_REDMINE_SOURCE_IDENTITY
 python3 "${ROOT}/render_runtime/runtime_safety.py" reserve
 
 STAGE="download"
@@ -188,14 +191,22 @@ payload["test_harness"] = {
     "blob_sha": os.environ["REQSYS_E2E_HARNESS_BLOB"],
 }
 payload["evidence_scope"] = "isolated_build_not_post_deploy_or_pc24x7"
+payload["source_identity"] = json.loads(os.environ["REQSYS_REDMINE_SOURCE_IDENTITY"])
+payload["redmine_repo_sha"] = payload["source_identity"]["source_sha"]
+serialized = json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True) + "\n"
+if key in serialized:
+    raise SystemExit("E2E_SECRET_DETECTED")
 target.parent.mkdir(parents=True, exist_ok=True)
 with target.open("x", encoding="utf-8") as output:
-    output.write(json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True) + "\n")
+    output.write(serialized)
 if json.loads(target.read_text(encoding="utf-8")) != payload:
     raise SystemExit("E2E_EVIDENCE_READBACK_FAILED")
 PY
 
 python3 "${ROOT}/render_runtime/security_dependencies.py" verify-compatibility
+
+STAGE="release_manifest"
+python3 "${ROOT}/render_runtime/release_identity.py" publish
 
 STAGE="legacy_start_compatibility"
 # Relative alias created only after gates pass. No existing directory is replaced.

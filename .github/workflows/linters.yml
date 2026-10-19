@@ -173,11 +173,42 @@ jobs:
               "PATH", "LANG", "LC_ALL", "SSL_CERT_FILE", "SSL_CERT_DIR", "GEM_HOME", "GEM_PATH"
           ) if name in os.environ}
           env.update({
+              "GITHUB_ACTIONS": os.environ["GITHUB_ACTIONS"],
+              "GITHUB_SHA": sha,
+              "GITHUB_REPOSITORY": os.environ["GITHUB_REPOSITORY"],
+              "GITHUB_REF": os.environ["GITHUB_REF"],
+              "GITHUB_WORKSPACE": os.environ["GITHUB_WORKSPACE"],
+              "RUNNER_ENVIRONMENT": os.environ["RUNNER_ENVIRONMENT"],
               "HOME": str(home),
               "BUNDLE_PATH": str(root / "gems"),
               "REQSYS_REDMINE_EPHEMERAL_E2E": "1",
               "REQSYS_REDMINE_API_KEY": key,
           })
+          source_gate = runpy.run_path(str(Path("render_runtime/release_identity.py").resolve()))
+          capture_source = source_gate["capture_source_identity"]
+          SourceIdentityError = source_gate["IdentityError"]
+          source_identity = capture_source(root, env)
+          copied_build = root / "render_runtime/build_redmine_6_1_4.sh"
+          original_build = copied_build.read_bytes()
+          wrong_source_sha = ("0" if sha[0] != "0" else "1") + sha[1:]
+          for name in ("wrong_sha", "changed_source"):
+              try:
+                  candidate_env = dict(env)
+                  if name == "wrong_sha":
+                      candidate_env["GITHUB_SHA"] = wrong_source_sha
+                  else:
+                      copied_build.write_bytes(original_build + b"\n# controlled source tamper\n")
+                  try:
+                      capture_source(root, candidate_env)
+                  except SourceIdentityError:
+                      pass
+                  else:
+                      raise SystemExit("CI_SOURCE_NEGATIVE_CONTROL_MISSED")
+              finally:
+                  copied_build.write_bytes(original_build)
+              if capture_source(root, env) != source_identity or (root / ".runtime").exists():
+                  raise SystemExit("CI_SOURCE_RESTORED_REPLAY_FAILED")
+          print(f"SOURCE_SNAPSHOT_VERIFIED sha={sha} controls=2 replay=passed", flush=True)
           log = root / "build.log"
           print(f"REDMINE_ISOLATED_BUILD_STARTED sha={sha}", flush=True)
           with log.open("x", encoding="utf-8") as stream:
@@ -215,6 +246,57 @@ jobs:
           proof = json.loads(raw)
           if proof.get("status") != "passed":
               raise SystemExit("CI_BUILD_EVIDENCE_NOT_PASSED")
+          identity_gate = runpy.run_path(str(Path("render_runtime/release_identity.py").resolve()))
+          verify_manifest = identity_gate["verify_manifest"]
+          IdentityError = identity_gate["IdentityError"]
+          manifest = verify_manifest(runtime, sha)
+          if manifest["source_identity"] != source_identity:
+              raise SystemExit("CI_SOURCE_IDENTITY_CHANGED")
+          if proof.get("redmine_repo_sha") != sha or proof.get("source_identity") != manifest["source_identity"]:
+              raise SystemExit("CI_RELEASE_SOURCE_MISMATCH")
+
+          # Exercise the installed manifest against independently altered copies.
+          # Never mutate the validated runtime, its database, or service files.
+          with tempfile.TemporaryDirectory(prefix="release-controls-", dir=root) as control_dir:
+              control_root = Path(control_dir)
+              for relative in (*identity_gate["ARTIFACTS"], identity_gate["MANIFEST_PATH"]):
+                  target = control_root / relative
+                  target.parent.mkdir(parents=True, exist_ok=True)
+                  shutil.copyfile(runtime / relative, target)
+              manifest_path = control_root / identity_gate["MANIFEST_PATH"]
+              original_manifest = manifest_path.read_bytes()
+              wrong_sha = ("0" if sha[0] != "0" else "1") + sha[1:]
+              cases = (
+                  ("expected_sha", None),
+                  ("manifest_sha", manifest_path),
+                  ("artifact_bytes", control_root / "Gemfile.lock"),
+                  ("evidence_bytes", control_root / "public/reqsys-e2e/evidence.json"),
+              )
+              for name, target in cases:
+                  before = target.read_bytes() if target else None
+                  try:
+                      if name == "manifest_sha":
+                          corrupted = json.loads(before)
+                          corrupted["source_identity"]["source_sha"] = wrong_sha
+                          target.write_text(json.dumps(corrupted), encoding="utf-8")
+                      elif target:
+                          target.write_bytes(before + b"\nCONTROL_TAMPER\n")
+                      try:
+                          verify_manifest(control_root, wrong_sha if name == "expected_sha" else sha)
+                      except IdentityError:
+                          pass
+                      else:
+                          raise SystemExit("CI_RELEASE_NEGATIVE_CONTROL_MISSED")
+                  finally:
+                      if target:
+                          target.write_bytes(before)
+                  if verify_manifest(control_root, sha) != manifest:
+                      raise SystemExit("CI_RELEASE_RESTORED_REPLAY_FAILED")
+              if manifest_path.read_bytes() != original_manifest:
+                  raise SystemExit("CI_RELEASE_MANIFEST_NOT_RESTORED")
+          if verify_manifest(runtime, sha) != manifest:
+              raise SystemExit("CI_RELEASE_FINAL_READBACK_FAILED")
+          print(f"RELEASE_MANIFEST_VERIFIED sha={sha} controls=4 replay=passed scope=isolated-build", flush=True)
           issue_id = proof["positive"]["redmine_issue_id"]
           project_id = proof["redmine"]["project_id"]
           db_path = root / ".runtime/redmine-6.1.5/tmp/reqsys_redmine_e2e.sqlite3"
@@ -236,6 +318,10 @@ jobs:
               "independent_sqlite_readback": True,
               "upstream_suites": upstream_suites,
               "evidence_sha256": hashlib.sha256(raw.encode()).hexdigest(),
+              "release_manifest_sha256": hashlib.sha256((runtime / identity_gate["MANIFEST_PATH"]).read_bytes()).hexdigest(),
+              "source_runtime_sha256": manifest["source_identity"]["source_runtime_sha256"],
+              "release_manifest_controls": 4,
+              "source_snapshot_controls": 2,
               "scope": "github_hosted_isolated_not_render_or_pc24x7",
           }, sort_keys=True), flush=True)
 
