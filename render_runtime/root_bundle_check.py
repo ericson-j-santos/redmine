@@ -64,9 +64,27 @@ def require_frozen_rejection(code: int, output: str) -> None:
         raise ValueError("ROOT_FROZEN_CONTROL_FAILED")
 
 
+
+def require_metadata_only_change(original: bytes, updated: bytes) -> str:
+    """Aceita somente metadado Ruby nativo novo; nenhuma gem pode mudar."""
+    pattern = rb"(?m)^RUBY VERSION\n   ruby ([0-9]+\.[0-9]+\.[0-9]+(?:p-?[0-9]+)?)\n\n"
+    before = list(re.finditer(pattern, original))
+    after = list(re.finditer(pattern, updated))
+    if len(before) != 1 or len(after) != 1:
+        raise ValueError("ROOT_RUBY_METADATA_INVALID")
+    if re.sub(pattern, b"RUBY VERSION\n\n", original) != re.sub(
+        pattern, b"RUBY VERSION\n\n", updated
+    ):
+        raise ValueError("ROOT_RUBY_METADATA_CHANGED_DEPENDENCIES")
+    version = after[0].group(1).decode()
+    if version.split(".")[:2] not in (["3", "3"], ["3", "4"]):
+        raise ValueError("ROOT_RUBY_METADATA_UNSUPPORTED")
+    return version
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("mode", choices=("candidate", "verify"))
+    parser.add_argument("mode", choices=("candidate", "verify", "ruby-metadata"))
     mode = parser.parse_args().mode
     if (os.environ.get("RUNNER_ENVIRONMENT") != "github-hosted"
             or os.environ.get("GITHUB_REPOSITORY") != "ericson-j-santos/redmine"
@@ -94,7 +112,7 @@ def main() -> None:
     env.update({
         "HOME": str(home), "BUNDLE_IGNORE_CONFIG": "1", "BUNDLE_PATH": str(base / "gems"),
         "BUNDLE_GEMFILE": str(root / "Gemfile"), "BUNDLE_WITHOUT": "development",
-        "BUNDLE_FROZEN": "false" if mode == "candidate" else "true",
+        "BUNDLE_FROZEN": "true" if mode == "verify" else "false",
         "BUNDLE_DEPLOYMENT": "false", "RAILS_ENV": "test", "SECRET_KEY_BASE": secret,
         "REDMINE_LANG": "en", "RAILS_MAX_THREADS": "1", "CI": "1",
     })
@@ -138,6 +156,16 @@ def main() -> None:
         print("ROOT_CANDIDATE_GEMFILE_JSON=" + json.dumps(target.read_text()), flush=True)
         print("ROOT_CANDIDATE_LOCK_JSON=" + json.dumps(lock.decode()), flush=True)
         print("ROOT_CANDIDATE_LOCK_SHA256=" + hashlib.sha256(lock).hexdigest(), flush=True)
+    if mode == "ruby-metadata":
+        original_lock = (root / "Gemfile.lock").read_bytes()
+        if blob_sha(original_lock) != "62521bc62544435cef3a2739afb414dc550781ee":
+            raise SystemExit("ROOT_RUBY_METADATA_SOURCE_CHANGED")
+        run(["bundle", "update", "--ruby"], "ruby_metadata", 240)
+        updated_lock = (root / "Gemfile.lock").read_bytes()
+        ruby_metadata = require_metadata_only_change(original_lock, updated_lock)
+        print("ROOT_NATIVE_RUBY_METADATA=" + ruby_metadata, flush=True)
+        print("ROOT_NATIVE_RUBY_LOCK_SHA256=" + hashlib.sha256(updated_lock).hexdigest(), flush=True)
+        print("ROOT_NATIVE_RUBY_LOCK_BLOB=" + blob_sha(updated_lock), flush=True)
     initial_lock = (root / "Gemfile.lock").read_bytes()
     env["BUNDLE_FROZEN"] = "true"
     run(["bundle", "install", "--jobs", "4", "--retry", "1"], "install", 240)
@@ -168,7 +196,9 @@ def main() -> None:
     if (root / "Gemfile.lock").read_bytes() != initial_lock:
         raise SystemExit("ROOT_LOCK_CHANGED_DURING_TESTS")
     print(json.dumps({
-        "status": "candidate_validated_not_committed" if mode == "candidate" else "passed",
+        "status": {"candidate": "candidate_validated_not_committed",
+                   "ruby-metadata": "ruby_metadata_validated_not_committed",
+                   "verify": "passed"}[mode],
         "sha": sha, "scope": "root_source_isolated_not_deployed",
         "lock_sha256": hashlib.sha256(initial_lock).hexdigest(), "suites": suites,
     }, sort_keys=True), flush=True)

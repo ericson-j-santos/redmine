@@ -62,5 +62,20 @@ class RootBundlePolicyTests(unittest.TestCase):
         self.assertIn("bundle exec rubocop --parallel", workflow)
         self.assertIn("bundle exec bundle audit check --update", workflow)
 
+    def test_metadata_only_change_preserves_graph(self):
+        original = b"GEM\n  specs:\n    example (1.0)\n\nRUBY VERSION\n   ruby 3.2.3p157\n\nBUNDLED WITH\n   2.6.7\n"
+        updated = original.replace(b"3.2.3p157", b"3.3.12p9")
+        self.assertEqual(target.require_metadata_only_change(original, updated), "3.3.12p9")
+        with self.assertRaisesRegex(ValueError, "CHANGED_DEPENDENCIES"):
+            target.require_metadata_only_change(original, updated.replace(b"example (1.0)", b"example (2.0)"))
+
+    def test_bad_ruby_metadata_is_rejected(self):
+        original = b"GEM\n\nRUBY VERSION\n   ruby 3.2.3p157\n\nBUNDLED WITH\n   2.6.7\n"
+        for updated in (original, b"", original + original,
+                        original.replace(b"3.2.3p157", b"3.5.0p1"),
+                        original.replace(b"3.2.3p157", b"3.3.0-rc1")):
+            with self.assertRaises(ValueError):
+                target.require_metadata_only_change(original, updated)
+
 if __name__ == "__main__":
     unittest.main()
