@@ -185,7 +185,7 @@ class DependencyPolicyTests(unittest.TestCase):
             self.assertIn(f"test/unit/{name}_test.rb", build)
             self.assertIn(f"tmp/reqsys-{name}-compat.log", build)
         self.assertIn("set -Eeuo pipefail", build)
-        self.assertIn('REQSYS_SHA="d4d0518d5f7be0927cf84d5f4a6df9bbcaf6f016"', build)
+        self.assertIn('REQSYS_SHA="9be16bfee3a3b8f9e3478e197e77d9231cdc4be6"', build)
         self.assertIn('HARNESS_SOURCE_SHA="b84576f76fad584bc420cb447d046aaafdc775ba"', build)
         self.assertIn('EXPECTED_SHA256="4b653d8863c012fdb226aedf6f8a18bdfa08d04625d15e8aafbbc3c4f6b70144"', build)
         self.assertNotIn("--ignore", build)
