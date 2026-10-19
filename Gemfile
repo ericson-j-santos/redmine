@@ -58,6 +58,9 @@ end
 
 # Include database gems for the adapters found in the database
 # configuration file
+mysql_adapter = false
+sqlite_adapter = false
+advisory_adapter = false
 database_file = File.join(File.dirname(__FILE__), "config/database.yml")
 if File.exist?(database_file)
   database_config = File.read(database_file)
@@ -76,15 +79,15 @@ if File.exist?(database_file)
     adapters.each do |adapter|
       case adapter.strip
       when /mysql2/
-        gem 'mysql2', '~> 0.5.0'
-        gem "with_advisory_lock"
+        mysql_adapter = true
+        advisory_adapter = true
       when /trilogy/
         gem 'trilogy', '~> 2.9.0'
-        gem "with_advisory_lock"
+        advisory_adapter = true
       when /postgresql/
         next # pg is already declared above for the existing runtime.
       when /sqlite3/
-        gem 'sqlite3', '~> 2.9.6'
+        sqlite_adapter = true
       when /sqlserver/
         gem 'tiny_tds', '~> 2.1.2'
         gem 'activerecord-sqlserver-adapter', '~> 8.0.8'
@@ -98,6 +101,11 @@ if File.exist?(database_file)
 else
   warn("Please configure your config/database.yml first")
 end
+
+# Declare each driver once, loading only configured adapters by default.
+gem 'mysql2', '~> 0.5.0', **(mysql_adapter ? {} : {group: :test, require: false})
+gem 'sqlite3', '~> 2.9.6', **(sqlite_adapter ? {} : {group: :test, require: false})
+gem 'with_advisory_lock', **(advisory_adapter ? {} : {group: :test, require: false})
 
 group :development, :test do
   gem 'debug'
@@ -113,16 +121,6 @@ end
 
 group :test do
   gem 'observer', '0.1.2', require: false
-  # Keep the frozen test bundle stable across SQLite, PostgreSQL and MySQL.
-  unless Array(adapters).any? {|adapter| /sqlite3/.match?(adapter.strip)}
-    gem 'sqlite3', '~> 2.9.6', require: false
-  end
-  unless Array(adapters).any? {|adapter| /mysql2/.match?(adapter.strip)}
-    gem 'mysql2', '~> 0.5.0', require: false
-  end
-  unless Array(adapters).any? {|adapter| /mysql2|trilogy/.match?(adapter.strip)}
-    gem 'with_advisory_lock', require: false
-  end
   gem "rails-dom-testing", '>= 2.3.0'
   gem 'mocha', '>= 2.0.1'
   gem 'simplecov', '~> 0.22.0', :require => false

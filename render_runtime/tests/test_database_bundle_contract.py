@@ -106,17 +106,17 @@ class DatabaseBundleContractTests(unittest.TestCase):
     def test_candidate_preserves_source_and_rejects_reapplication(self):
         import hashlib
 
-        raw = b"# keep\n" + target.OBSERVER_MARKER + b"  gem 'factory_bot_rails'\nend\n"
+        raw = b"# keep this byte-for-byte\ndatabase_file = File.join(File.dirname(__FILE__), \"config/database.yml\")\nif File.exist?(database_file)\n  adapters = File.read(database_file).scan(/^ *adapter: *(.*)/).flatten.uniq\n  adapters.each do |adapter|\n    case adapter.strip\n      when /mysql2/\n        gem 'mysql2', '~> 0.5.0'\n        gem \"with_advisory_lock\"\n      when /trilogy/\n        gem 'trilogy', '~> 2.9.0'\n        gem \"with_advisory_lock\"\n      when /sqlite3/\n        gem 'sqlite3', '~> 2.9.6'\n    end\n  end\nend\n\ngroup :development, :test do\n  gem 'keep', '1.0'\nend\ngroup :test do\n  gem 'observer', '0.1.2', require: false\nend\n"
+        expected = b"# keep this byte-for-byte\nmysql_adapter = false\nsqlite_adapter = false\nadvisory_adapter = false\ndatabase_file = File.join(File.dirname(__FILE__), \"config/database.yml\")\nif File.exist?(database_file)\n  adapters = File.read(database_file).scan(/^ *adapter: *(.*)/).flatten.uniq\n  adapters.each do |adapter|\n    case adapter.strip\n      when /mysql2/\n        mysql_adapter = true\n        advisory_adapter = true\n      when /trilogy/\n        gem 'trilogy', '~> 2.9.0'\n        advisory_adapter = true\n      when /sqlite3/\n        sqlite_adapter = true\n    end\n  end\nend\n\n# Declare each driver once, loading only configured adapters by default.\ngem 'mysql2', '~> 0.5.0', **(mysql_adapter ? {} : {group: :test, require: false})\ngem 'sqlite3', '~> 2.9.6', **(sqlite_adapter ? {} : {group: :test, require: false})\ngem 'with_advisory_lock', **(advisory_adapter ? {} : {group: :test, require: false})\n\ngroup :development, :test do\n  gem 'keep', '1.0'\nend\ngroup :test do\n  gem 'observer', '0.1.2', require: false\nend\n"
         digest = hashlib.sha1(b"blob " + str(len(raw)).encode() + b"\0" + raw).hexdigest()
         with patch.object(target, "SOURCE_GEMFILE_BLOB", digest):
             result = target.candidate_gemfile(raw)
-            self.assertEqual(result.replace(target.DATABASE_TEST_ADDITIONS, b"", 1), raw)
+            self.assertEqual(result, expected)
             with self.assertRaisesRegex(ValueError, "SOURCE_CHANGED"):
                 target.candidate_gemfile(result)
         for changed in (b"", raw, b"group :test do\nend\n"):
             with self.assertRaisesRegex(ValueError, "SOURCE_CHANGED"):
                 target.candidate_gemfile(changed)
-
 
     def test_committed_contract_is_verified_without_resolution(self):
         from pathlib import Path
@@ -124,8 +124,11 @@ class DatabaseBundleContractTests(unittest.TestCase):
         root = Path(__file__).resolve().parents[2]
         target.require_database_contract((root / "Gemfile.lock").read_bytes())
         gemfile = (root / "Gemfile").read_bytes()
-        self.assertEqual(gemfile.count(target.DATABASE_TEST_ADDITIONS), 1)
-        self.assertIn(target.OBSERVER_MARKER + target.DATABASE_TEST_ADDITIONS, gemfile)
+        self.assertEqual(gemfile.count(target.DATABASE_DECLARATIONS), 1)
+        self.assertIn(target.OBSERVER_MARKER, gemfile)
+        self.assertLess(gemfile.index(target.DATABASE_DECLARATIONS), gemfile.index(b"group :development, :test do"))
+        for name in ("mysql2", "sqlite3", "with_advisory_lock"):
+            self.assertEqual(gemfile.count(f"gem '{name}'".encode()), 1)
         workflow = (root / ".github/workflows/root-bundle-validation.yml").read_text()
         self.assertIn("run: python3 render_runtime/root_bundle_check.py verify", workflow)
         self.assertNotIn("run: python3 render_runtime/root_bundle_check.py database-candidate", workflow)

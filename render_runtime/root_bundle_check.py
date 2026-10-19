@@ -278,7 +278,7 @@ def main() -> None:
             raise SystemExit("ROOT_OBSERVER_CONTROL_CHANGED_LOCK")
         run(["bundle", "check"], "observer_restored_replay", 30)
     if mode in ("database-candidate", "verify"):
-        declaration = b"    gem 'mysql2', '~> 0.5.0', require: false\n"
+        declaration = database_contract["MYSQL_DECLARATION"]
         if before_control.count(declaration) != 1:
             raise SystemExit("ROOT_DATABASE_NEGATIVE_CONTROL_AMBIGUOUS")
         try:

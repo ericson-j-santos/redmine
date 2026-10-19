@@ -34,7 +34,10 @@ a matriz do commit que incorpora estes bytes precisa ser conferida à parte.
 ## Contrato permanente
 
 Os complementos dos bancos inativos ficam somente em :test, require:false.
-O case original continua declarando o adaptador ativo no grupo padrão.
+O case seleciona flags; cada gem tem uma única declaração fora dos grupos.
+Adaptadores ativos recebem opções vazias (grupo padrão e carregamento
+original); os demais recebem group:test e require:false. Assim o lint de
+duplicação permanece habilitado e o probe continua exigindo esses grupos.
 O probe usa o DSL real do Bundler 2.6.7 sobre o Gemfile e Gemfile.local em
 SQLite, PostgreSQL, MySQL e configuração ausente. Compara nomes, requisitos
 e plataformas com o lock, verifica grupos e carregamento, rejeita uma
@@ -62,3 +65,8 @@ Esta recuperação não é deploy nem homologação do DEV publicado/PC24x7.
 O E2E do build isolado usa o runtime próprio de render_runtime; não equivale
 à validação funcional desses ambientes ou da projeção do TODO Global.
 O TODO-7 permanece aberto e E2E parcial até suas evidências reais.
+
+O Gemfile foi consolidado após o lint detectar declarações duplicadas nos
+ramos condicionais. O lock nativo acima permanece byte-idêntico. A chave
+require é omitida para adaptadores ativos: require:nil não seria equivalente
+no DSL do Bundler 2.6.7. O probe mantém essa distinção obrigatória.

@@ -7,17 +7,15 @@ import re
 SOURCE_GEMFILE_BLOB = "78b9c6651d531e8184adaa78c5369783a433be6c"
 SOURCE_LOCK_BLOB = "41ac12fcfa7632e300e036e59d77d75c1c421f2b"
 OBSERVER_MARKER = b"group :test do\n  gem 'observer', '0.1.2', require: false\n"
-DATABASE_TEST_ADDITIONS = b"""  # Keep the frozen test bundle stable across SQLite, PostgreSQL and MySQL.
-  unless Array(adapters).any? {|adapter| /sqlite3/.match?(adapter.strip)}
-    gem 'sqlite3', '~> 2.9.6', require: false
-  end
-  unless Array(adapters).any? {|adapter| /mysql2/.match?(adapter.strip)}
-    gem 'mysql2', '~> 0.5.0', require: false
-  end
-  unless Array(adapters).any? {|adapter| /mysql2|trilogy/.match?(adapter.strip)}
-    gem 'with_advisory_lock', require: false
-  end
-"""
+MYSQL_DECLARATION = b"gem 'mysql2', '~> 0.5.0', **(mysql_adapter ? {} : {group: :test, require: false})\n"
+DATABASE_DECLARATIONS = b"# Declare each driver once, loading only configured adapters by default.\ngem 'mysql2', '~> 0.5.0', **(mysql_adapter ? {} : {group: :test, require: false})\ngem 'sqlite3', '~> 2.9.6', **(sqlite_adapter ? {} : {group: :test, require: false})\ngem 'with_advisory_lock', **(advisory_adapter ? {} : {group: :test, require: false})\n"
+CANDIDATE_REPLACEMENTS = (
+    (b"database_file = File.join(File.dirname(__FILE__), \"config/database.yml\")\n", b"mysql_adapter = false\nsqlite_adapter = false\nadvisory_adapter = false\ndatabase_file = File.join(File.dirname(__FILE__), \"config/database.yml\")\n"),
+    (b"      when /mysql2/\n        gem 'mysql2', '~> 0.5.0'\n        gem \"with_advisory_lock\"\n", b"      when /mysql2/\n        mysql_adapter = true\n        advisory_adapter = true\n"),
+    (b"      when /trilogy/\n        gem 'trilogy', '~> 2.9.0'\n        gem \"with_advisory_lock\"\n", b"      when /trilogy/\n        gem 'trilogy', '~> 2.9.0'\n        advisory_adapter = true\n"),
+    (b"      when /sqlite3/\n        gem 'sqlite3', '~> 2.9.6'\n", b"      when /sqlite3/\n        sqlite_adapter = true\n"),
+    (b"\n\ngroup :development, :test do\n", b"\n\n# Declare each driver once, loading only configured adapters by default.\ngem 'mysql2', '~> 0.5.0', **(mysql_adapter ? {} : {group: :test, require: false})\ngem 'sqlite3', '~> 2.9.6', **(sqlite_adapter ? {} : {group: :test, require: false})\ngem 'with_advisory_lock', **(advisory_adapter ? {} : {group: :test, require: false})\n\ngroup :development, :test do\n"),
+)
 
 _HEADERS = (b"GEM", b"PLATFORMS", b"DEPENDENCIES", b"RUBY VERSION", b"BUNDLED WITH")
 # Critérios de revisão dos gemspecs oficiais; nunca usados para gerar o lock.
@@ -35,9 +33,11 @@ def candidate_gemfile(raw: bytes) -> bytes:
     observed = hashlib.sha1(b"blob " + str(len(raw)).encode() + b"\0" + raw).hexdigest()
     if observed != SOURCE_GEMFILE_BLOB:
         raise ValueError("DB_GEMFILE_SOURCE_CHANGED")
-    if raw.count(OBSERVER_MARKER) != 1 or DATABASE_TEST_ADDITIONS in raw:
-        raise ValueError("DB_GEMFILE_DECLARATION_AMBIGUOUS")
-    return raw.replace(OBSERVER_MARKER, OBSERVER_MARKER + DATABASE_TEST_ADDITIONS, 1)
+    for old, new in CANDIDATE_REPLACEMENTS:
+        if raw.count(old) != 1:
+            raise ValueError("DB_GEMFILE_DECLARATION_AMBIGUOUS")
+        raw = raw.replace(old, new, 1)
+    return raw
 
 
 def _sections(raw: bytes) -> dict[bytes, bytes]:
@@ -205,7 +205,7 @@ begin
 rescue RuntimeError => error
   raise unless error.message == 'DB_PROBE_DEPENDENCIES_CHANGED'
 end
-needle = "    gem 'mysql2', '~> 0.5.0', require: false"
+needle = "gem 'mysql2', '~> 0.5.0', **(mysql_adapter ? {} : {group: :test, require: false})"
 unless raw.scan(Regexp.new(Regexp.escape(needle))).length == 1
   raise 'DB_PROBE_REQUIRE_CONTROL_AMBIGUOUS'
 end
