@@ -39,9 +39,9 @@ Adaptadores ativos recebem opções vazias (grupo padrão e carregamento
 original); os demais recebem group:test e require:false. Assim o lint de
 duplicação permanece habilitado e o probe continua exigindo esses grupos.
 O probe usa o DSL real do Bundler 2.6.7 sobre o Gemfile e Gemfile.local em
-SQLite, PostgreSQL, MySQL e configuração ausente. Compara nomes, requisitos
-e plataformas com o lock, verifica grupos e carregamento, rejeita uma
-dependência extra e require:true, repete e verifica os arquivos de origem.
+SQLite, PostgreSQL, MySQL e configuração ausente. Compara nomes e requisitos com o lock, exige plataformas iguais entre os
+quatro cenários, verifica grupos e carregamento, rejeita uma dependência
+extra e require:true, repete e verifica os arquivos de origem.
 
 O modo verify nunca resolve: exige o contrato, instalação congelada,
 controle negativo real removendo mysql2, restauração e novo probe, além dos
@@ -50,9 +50,11 @@ database-candidate foi retirado do workflow.
 
 A matriz exige conexão real, identidade do banco consultada no servidor ou
 arquivo SQLite e repetição de SELECT 1, sem alteração do lock, antes da
-regressão Git e suíte ampla. As execuções focadas Git e Bazaar recebem uma
-chave de teste efêmera somente no subprocesso; sua saída é redigida se
-contiver a chave. O locale ISO do teste Bazaar foi preservado.
+regressão Git e suíte ampla. As execuções focadas Git, Bazaar e autoload
+recebem uma chave de teste efêmera somente no subprocesso; sua saída é
+redigida se contiver a chave. O locale ISO do teste Bazaar foi preservado.
+A tarefa test:autoload continua selecionando os plugins de fixture; seu
+resumo exige testes e asserções executados, sem falhas, erros ou skips.
 
 ## Limites e continuidade
 

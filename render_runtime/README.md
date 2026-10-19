@@ -3,7 +3,7 @@
 Runtime isolado da issue ReqSys #1686. Não é a instância Redmine histórica,
 não é o TODO Global canônico e não está homologado para dados duráveis.
 
-## Incremento de recuperação — 18/10/2026
+## Incrementos de recuperação — 18–19/10/2026
 
 O entrypoint `build_redmine_6_1_4.sh` é mantido por compatibilidade com o serviço
 Render existente; o código passa a baixar **Redmine 6.1.5**. O SHA-256 fixado vem
@@ -12,7 +12,7 @@ da página oficial de downloads e é verificado antes da extração:
 `4b653d8863c012fdb226aedf6f8a18bdfa08d04625d15e8aafbbc3c4f6b70144`
 
 O código do produto ReqSys é fixado em
-`d1db91274de744aeee17da029e908f4486bfc31a`. Esse SHA não contém o script E2E
+`9be16bfee3a3b8f9e3478e197e77d9231cdc4be6`. Esse SHA não contém o script E2E
 histórico. O build importa somente esse script do commit
 `b84576f76fad584bc420cb447d046aaafdc775ba`, verificando o blob Git
 `4008741f26abc4a1487978682ad53d17b9f20adc`; o restante da árvore e das importações

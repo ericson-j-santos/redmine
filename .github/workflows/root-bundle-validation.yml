@@ -6,6 +6,7 @@ on:
     paths:
       - 'test/**'
       - 'Gemfile'
+      - 'Gemfile.local'
       - 'Gemfile.lock'
       - 'render_runtime/root_bundle_check.py'
       - 'render_runtime/tests/test_root_bundle_check.py'
