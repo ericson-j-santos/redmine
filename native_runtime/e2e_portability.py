@@ -65,6 +65,24 @@ def sanitized_log_tail(log_path: Path, env: dict[str, str], max_chars: int = 800
     return tail[-max_chars:]
 
 
+def release_tree_snapshot(release: Path) -> dict[str, str]:
+    snapshot = {}
+    for path in native._relative_files(release, exclude=native.EXCLUDED_TREE):
+        rel = path.relative_to(release).as_posix()
+        if rel == native.NATIVE_METADATA.as_posix():
+            continue
+        snapshot[rel] = native._hash_file(path)
+    return snapshot
+
+
+def release_tree_drift(before: dict[str, str], after: dict[str, str]) -> dict[str, list[str]]:
+    return {
+        "added": sorted(set(after) - set(before)),
+        "removed": sorted(set(before) - set(after)),
+        "changed": sorted(key for key in set(before) & set(after) if before[key] != after[key]),
+    }
+
+
 def start_and_probe(release: Path, env: dict[str, str], log_path: Path) -> None:
     ready = False
     terminated_by_test = False
@@ -139,6 +157,7 @@ def main() -> int:
         raise SystemExit("NATIVE_E2E_INSTALL_READBACK_FAILED")
 
     release = (target / "current").resolve()
+    release_tree_before_runtime = release_tree_snapshot(release)
     state_db = target / "shared/db/redmine.sqlite3"
     after_install = sqlite_snapshot(state_db)
     if after_install != before:
@@ -187,6 +206,14 @@ def main() -> int:
     native.restore_sqlite(backup, restored)
     if sqlite_snapshot(restored / "db/redmine.sqlite3") != before:
         raise SystemExit("NATIVE_E2E_RESTORE_STATE_MISMATCH")
+
+    release_tree_after_runtime = release_tree_snapshot(release)
+    if release_tree_after_runtime != release_tree_before_runtime:
+        print(
+            "NATIVE_E2E_RELEASE_TREE_DRIFT "
+            + json.dumps(release_tree_drift(release_tree_before_runtime, release_tree_after_runtime), sort_keys=True),
+            file=sys.stderr,
+        )
 
     replay = native.install_release(source, target, sha, seed_sqlite=seed_db, install_bundle=True)
     if replay != metadata or sqlite_snapshot(state_db) != before:
