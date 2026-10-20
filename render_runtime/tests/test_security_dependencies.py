@@ -20,17 +20,28 @@ class DependencyPolicyTests(unittest.TestCase):
         self.original = (Path(__file__).parent / "fixtures/redmine_6_1_5.Gemfile").read_bytes()
         self.target.write_bytes(self.original)
 
-    def test_exact_upstream_fixture_and_three_line_change(self):
+    def test_exact_upstream_fixture_and_runtime_puma_relocation(self):
         self.assertEqual(policy.blob_sha(self.original), policy.UPSTREAM_BLOB)
         expected = self.original
-        for name, version in policy.PINS.items():
+        for name in policy.OLD:
             expected = expected.replace(
                 f"gem '{name}', '{policy.OLD[name]}'".encode(),
-                f"gem '{name}', '{version}'".encode())
+                f"gem '{name}', '{policy.PINS[name]}'".encode())
+        expected = expected.replace(
+            policy.PUMA_TEST_ANCHOR + policy.PUMA_TEST_LINE,
+            policy.PUMA_TEST_ANCHOR,
+            1,
+        )
+        expected = expected.replace(
+            policy.PUMA_RUNTIME_ANCHOR,
+            policy.PUMA_RUNTIME_ANCHOR + policy.PUMA_RUNTIME_LINE,
+            1,
+        )
         result = policy.hardened_gemfile(self.original)
         self.assertEqual(result, expected)
-        self.assertEqual(sum(a != b for a, b in zip(
-            result.splitlines(), self.original.splitlines())), 3)
+        self.assertEqual(result.count(policy.PUMA_RUNTIME_LINE), 1)
+        self.assertNotIn(policy.PUMA_TEST_LINE, result)
+        self.assertLess(result.index(policy.PUMA_RUNTIME_LINE), result.index(b"group :test do"))
 
     def test_positive_atomic_readback_and_replay_keep_inode_and_bytes(self):
         self.assertTrue(policy.apply_pins(self.target))
@@ -55,6 +66,15 @@ class DependencyPolicyTests(unittest.TestCase):
     def test_partial_patch_is_rejected(self):
         raw = self.original.replace(b"gem 'mail', '~> 2.8.1'", b"gem 'mail', '2.9.1'")
         with self.assertRaisesRegex(policy.DependencyPolicyError, "PARTIAL_PATCH"):
+            policy.hardened_gemfile(raw)
+
+    def test_puma_partial_relocation_is_rejected(self):
+        raw = self.original.replace(
+            policy.PUMA_RUNTIME_ANCHOR,
+            policy.PUMA_RUNTIME_ANCHOR + policy.PUMA_RUNTIME_LINE,
+            1,
+        )
+        with self.assertRaises(policy.DependencyPolicyError):
             policy.hardened_gemfile(raw)
 
     def test_unknown_version_and_downgrade_are_rejected(self):

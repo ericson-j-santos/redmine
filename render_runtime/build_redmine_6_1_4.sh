@@ -100,8 +100,8 @@ RAILS_ENV=test bundle exec ruby -Itest test/unit/attachment_test.rb \
   | tee tmp/reqsys-attachment-compat.log
 RAILS_ENV=test bundle exec ruby -Itest test/unit/mailer_test.rb \
   | tee tmp/reqsys-mailer-compat.log
-bundle exec ruby -rjson -rmail -rzip -rsqlite3 \
-  -e 'puts JSON.generate(%w[mail rubyzip sqlite3].to_h { |n| [n, Gem.loaded_specs.fetch(n).version.to_s] })' \
+bundle exec ruby -rjson -rmail -rzip -rsqlite3 -rpuma \
+  -e 'puts JSON.generate(%w[mail rubyzip sqlite3 puma].to_h { |n| [n, Gem.loaded_specs.fetch(n).version.to_s] })' \
   > tmp/reqsys-loaded-gems.json
 python3 "${ROOT}/render_runtime/security_dependencies.py" verify-compatibility
 

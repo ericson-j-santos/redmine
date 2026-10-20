@@ -11,8 +11,12 @@ import stat
 import tempfile
 
 UPSTREAM_BLOB = "0db3edefdabf92e376c05a10c6bdaf48663fe16f"
-PINS = {"mail": "2.9.1", "rubyzip": "3.4.1", "sqlite3": "2.9.6"}
+PINS = {"mail": "2.9.1", "rubyzip": "3.4.1", "sqlite3": "2.9.6", "puma": "7.2.1"}
 OLD = {"mail": "~> 2.8.1", "rubyzip": "~> 2.4.0", "sqlite3": "~> 2.5.0"}
+PUMA_TEST_ANCHOR = b"  # For running system tests\n"
+PUMA_TEST_LINE = b"  gem 'puma'\n"
+PUMA_RUNTIME_ANCHOR = b'gem "requestjs-rails", "~> 0.0.13"\n'
+PUMA_RUNTIME_LINE = b"gem 'puma', '7.2.1'\n"
 
 
 class DependencyPolicyError(ValueError):
@@ -28,21 +32,43 @@ def hardened_gemfile(raw: bytes) -> bytes:
     if not isinstance(raw, bytes) or len(raw) > 16384:
         raise DependencyPolicyError("DEPENDENCY_GEMFILE_INVALID")
     original = raw
-    for name, version in PINS.items():
+
+    # Reconstrói o upstream a partir do patch Puma completo, se já aplicado.
+    runtime_puma = PUMA_RUNTIME_ANCHOR + PUMA_RUNTIME_LINE
+    test_puma = PUMA_TEST_ANCHOR + PUMA_TEST_LINE
+    if raw.count(PUMA_RUNTIME_LINE) == 1 and raw.count(PUMA_TEST_LINE) == 0:
+        if raw.count(PUMA_RUNTIME_ANCHOR) != 1 or raw.count(PUMA_TEST_ANCHOR) != 1:
+            raise DependencyPolicyError("DEPENDENCY_GEMFILE_CONTRACT_MISMATCH")
+        original = original.replace(PUMA_RUNTIME_LINE, b"", 1)
+        original = original.replace(PUMA_TEST_ANCHOR, test_puma, 1)
+    elif raw.count(PUMA_RUNTIME_LINE) == 0 and raw.count(PUMA_TEST_LINE) == 1:
+        pass
+    else:
+        raise DependencyPolicyError("DEPENDENCY_GEMFILE_CONTRACT_MISMATCH")
+
+    for name in OLD:
+        version = PINS[name]
         old = f"gem '{name}', '{OLD[name]}'".encode()
         new = f"gem '{name}', '{version}'".encode()
-        if raw.count(new) == 1 and raw.count(old) == 0:
+        if original.count(new) == 1 and original.count(old) == 0:
             original = original.replace(new, old)
-        elif raw.count(old) != 1 or raw.count(new) != 0:
+        elif original.count(old) != 1 or original.count(new) != 0:
             raise DependencyPolicyError("DEPENDENCY_GEMFILE_CONTRACT_MISMATCH")
+
     if blob_sha(original) != UPSTREAM_BLOB:
         raise DependencyPolicyError("DEPENDENCY_UPSTREAM_BLOB_MISMATCH")
+
     patched = original
-    for name, version in PINS.items():
+    for name in OLD:
         patched = patched.replace(
             f"gem '{name}', '{OLD[name]}'".encode(),
-            f"gem '{name}', '{version}'".encode(),
+            f"gem '{name}', '{PINS[name]}'".encode(),
         )
+    if patched.count(test_puma) != 1 or patched.count(PUMA_RUNTIME_ANCHOR) != 1:
+        raise DependencyPolicyError("DEPENDENCY_GEMFILE_CONTRACT_MISMATCH")
+    patched = patched.replace(test_puma, PUMA_TEST_ANCHOR, 1)
+    patched = patched.replace(PUMA_RUNTIME_ANCHOR, runtime_puma, 1)
+
     if raw not in (original, patched):
         raise DependencyPolicyError("DEPENDENCY_PARTIAL_PATCH_REJECTED")
     return patched

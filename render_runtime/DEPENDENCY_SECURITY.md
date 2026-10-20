@@ -6,10 +6,12 @@ O Redmine 6.1.5 baixado pelo build restringia mail a 2.8.x, rubyzip a 2.4.x e
 sqlite3 a 2.5.x. A auditoria do lock realmente instalado reprovou essas famílias
 no run 39175431412/job 117817017464; repetir bundle install não as corrigiria.
 
-A política versionada altera somente três declarações, mantendo Rails, a versão
-Redmine, o checksum do arquivo oficial e o produto/harness ReqSys já fixados:
-mail 2.9.1, rubyzip 3.4.1 e sqlite3 2.9.6. Essas versões são candidatas de
-compatibilidade; pin não é atestado de ausência de vulnerabilidades.
+A política versionada preserva Rails, a versão Redmine, o checksum do arquivo
+oficial e o produto/harness ReqSys já fixados. Ela atualiza mail 2.9.1,
+rubyzip 3.4.1 e sqlite3 2.9.6 e move Puma do grupo exclusivo de testes para o
+bundle de runtime, fixado em 7.2.1. A promoção de Puma corrige a dependência
+implícita do executável global do runner que impedia a instalação portátil
+congelada. Os pins não são atestado de ausência de vulnerabilidades.
 
 ## Proteções
 
@@ -26,7 +28,8 @@ compatibilidade; pin não é atestado de ausência de vulnerabilidades.
   SQLite exclusivo de teste, distinto do banco do lifecycle. E-mail fica no
   adaptador de teste do Rails, não constitui teste de entrega SMTP.
 - Python confere que cada suite tem ao menos cinco testes não pulados, asserções,
-  zero falhas/erros, as três versões efetivamente carregadas e o lock utilizado.
+  zero falhas/erros, as quatro versões efetivamente carregadas (incluindo Puma)
+  e o lock utilizado.
 - O lifecycle real ReqSys/Redmine e a releitura SQLite independente permanecem
   obrigatórios. Não apresentar testes de transporte simulado como E2E externo.
 
