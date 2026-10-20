@@ -1,0 +1,25 @@
+[Unit]
+Description=ReqSys Redmine native Linux runtime
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=simple
+User=redmine
+Group=redmine
+WorkingDirectory=/opt/reqsys-redmine/current
+EnvironmentFile=/etc/reqsys-redmine/redmine.env
+ExecStart=/opt/reqsys-redmine/current/bin/reqsys-redmine-start
+Restart=on-failure
+RestartSec=5s
+TimeoutStartSec=120s
+TimeoutStopSec=30s
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/reqsys-redmine/shared
+
+[Install]
+WantedBy=multi-user.target
