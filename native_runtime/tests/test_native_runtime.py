@@ -176,6 +176,45 @@ class NativeRuntimeTests(unittest.TestCase):
             self.assertEqual((restored / "files/sample.txt").read_text(), "attachment\n")
             self.assertTrue((restored / "config/secret_token.rb").is_file())
 
+    def test_wal_backup_verification_is_immutable_and_creates_no_sidecars(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            state = root / "state"
+            (state / "db").mkdir(parents=True)
+            (state / "files").mkdir()
+            (state / "config").mkdir()
+            source = state / "db/redmine.sqlite3"
+            db = sqlite3.connect(source)
+            try:
+                self.assertEqual(db.execute("pragma journal_mode=wal").fetchone()[0], "wal")
+                db.execute("create table markers(id integer primary key, value text not null)")
+                db.execute("insert into markers(value) values ('wal-persisted')")
+                db.commit()
+            finally:
+                db.close()
+
+            backup = root / "backup"
+            native.backup_sqlite(state, backup, quiesced=True)
+            first = native.verify_backup(backup)
+            second = native.verify_backup(backup)
+            self.assertEqual(first, second)
+            names = sorted(path.name for path in (backup / "db").iterdir())
+            self.assertEqual(names, ["redmine.sqlite3"])
+
+            restored = root / "restored"
+            native.restore_sqlite(backup, restored)
+            restored_db = sqlite3.connect(
+                f"file:{restored / 'db/redmine.sqlite3'}?mode=ro&immutable=1",
+                uri=True,
+            )
+            try:
+                self.assertEqual(
+                    restored_db.execute("select value from markers").fetchone(),
+                    ("wal-persisted",),
+                )
+            finally:
+                restored_db.close()
+
     def test_backup_requires_quiesce(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

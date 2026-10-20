@@ -443,7 +443,7 @@ def verify_backup(backup_root: Path) -> dict:
         raise NativeRuntimeError("NATIVE_BACKUP_HASH_MISMATCH")
     db_path = backup_root / "db/redmine.sqlite3"
     try:
-        db = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
+        db = sqlite3.connect(f"file:{db_path}?mode=ro&immutable=1", uri=True)
         try:
             if db.execute("PRAGMA integrity_check").fetchone() != ("ok",):
                 raise NativeRuntimeError("NATIVE_BACKUP_SQLITE_INVALID")
@@ -478,7 +478,7 @@ def backup_sqlite(state_root: Path, output: Path, *, quiesced: bool) -> dict:
             else:
                 target.mkdir(mode=0o700)
 
-        src = sqlite3.connect(f"file:{source_db}?mode=ro", uri=True)
+        src = sqlite3.connect(f"file:{source_db}?mode=ro&immutable=1", uri=True)
         dst = sqlite3.connect(staging / "db/redmine.sqlite3")
         try:
             src.backup(dst)
@@ -516,7 +516,7 @@ def restore_sqlite(backup_root: Path, target_state: Path) -> dict:
         for name in ("tmp", "log", "backups"):
             (staging / name).mkdir(mode=0o700)
         db_path = staging / "db/redmine.sqlite3"
-        db = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
+        db = sqlite3.connect(f"file:{db_path}?mode=ro&immutable=1", uri=True)
         try:
             if db.execute("PRAGMA integrity_check").fetchone() != ("ok",):
                 raise NativeRuntimeError("NATIVE_RESTORE_SQLITE_INVALID")
