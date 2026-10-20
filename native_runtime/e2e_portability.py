@@ -83,6 +83,38 @@ def release_tree_drift(before: dict[str, str], after: dict[str, str]) -> dict[st
     }
 
 
+def seal_release_for_runtime(release: Path) -> dict[str, int]:
+    """Emula o ProtectSystem=strict sem seguir links para o estado compartilhado."""
+    release = release.resolve()
+    if not release.is_dir() or release.is_symlink():
+        raise SystemExit("NATIVE_E2E_RELEASE_SEAL_ROOT_INVALID")
+    paths = [release, *sorted(release.rglob("*"), key=lambda value: value.as_posix())]
+    modes: dict[str, int] = {}
+    for path in paths:
+        if path.is_symlink():
+            continue
+        try:
+            mode = path.stat().st_mode & 0o7777
+            path.chmod(mode & ~0o222)
+        except OSError:
+            raise SystemExit("NATIVE_E2E_RELEASE_SEAL_FAILED") from None
+        rel = "." if path == release else path.relative_to(release).as_posix()
+        modes[rel] = mode
+    return modes
+
+
+def restore_release_modes(release: Path, modes: dict[str, int]) -> None:
+    """Restaura somente os modos alterados pelo E2E para limpeza do runner descartável."""
+    for rel, mode in modes.items():
+        path = release if rel == "." else release / rel
+        if path.is_symlink():
+            continue
+        try:
+            path.chmod(mode)
+        except OSError:
+            raise SystemExit("NATIVE_E2E_RELEASE_MODE_RESTORE_FAILED") from None
+
+
 def start_and_probe(release: Path, env: dict[str, str], log_path: Path) -> None:
     ready = False
     terminated_by_test = False
@@ -158,6 +190,10 @@ def main() -> int:
 
     release = (target / "current").resolve()
     release_tree_before_runtime = release_tree_snapshot(release)
+    release_modes = seal_release_for_runtime(release)
+    if native.verify_install(target, sha) != metadata:
+        raise SystemExit("NATIVE_E2E_SEALED_INSTALL_READBACK_FAILED")
+    print(f"NATIVE_E2E_RELEASE_READ_ONLY paths={len(release_modes)}", flush=True)
     state_db = target / "shared/db/redmine.sqlite3"
     after_install = sqlite_snapshot(state_db)
     if after_install != before:
@@ -232,6 +268,8 @@ def main() -> int:
         raise SystemExit("NATIVE_E2E_WRONG_SHA_CONTROL_MISSED")
     if wrong_target.exists():
         raise SystemExit("NATIVE_E2E_WRONG_SHA_MUTATED_TARGET")
+
+    restore_release_modes(release, release_modes)
 
     payload = {
         "status": "passed",
