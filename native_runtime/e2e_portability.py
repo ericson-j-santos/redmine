@@ -48,6 +48,23 @@ def run_runner(release: Path, env: dict[str, str], expected_issues: int) -> None
         raise SystemExit("NATIVE_E2E_RAILS_READBACK_FAILED")
 
 
+def sanitized_log_tail(log_path: Path, env: dict[str, str], max_chars: int = 8000) -> str:
+    try:
+        text = log_path.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return ""
+    for name, value in env.items():
+        upper = name.upper()
+        if (
+            isinstance(value, str)
+            and len(value) >= 4
+            and any(token in upper for token in ("KEY", "TOKEN", "SECRET", "PASSWORD"))
+        ):
+            text = text.replace(value, "[REDACTED]")
+    tail = "\n".join(text.splitlines()[-40:])
+    return tail[-max_chars:]
+
+
 def start_and_probe(release: Path, env: dict[str, str], log_path: Path) -> None:
     ready = False
     terminated_by_test = False
@@ -91,6 +108,11 @@ def start_and_probe(release: Path, env: dict[str, str], log_path: Path) -> None:
             f"returncode={proc.returncode}",
             file=sys.stderr,
         )
+        tail = sanitized_log_tail(log_path, env)
+        if tail:
+            print("NATIVE_E2E_SERVICE_LOG_TAIL_BEGIN", file=sys.stderr)
+            print(tail, file=sys.stderr)
+            print("NATIVE_E2E_SERVICE_LOG_TAIL_END", file=sys.stderr)
         raise SystemExit(str(exc)) from None
 
 
