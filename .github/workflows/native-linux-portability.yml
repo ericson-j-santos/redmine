@@ -1,0 +1,100 @@
+name: Native Linux Portability
+
+on:
+  push:
+    branches:
+      - dev/reqsys-e2e-redmine-6.1.4-20260928
+    paths:
+      - 'native_runtime/**'
+      - 'render_runtime/**'
+      - '.github/workflows/native-linux-portability.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: redmine-native-linux-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  native-linux-portability:
+    name: Native Linux portable runtime E2E
+    runs-on: ubuntu-24.04
+    timeout-minutes: 18
+
+    steps:
+      - name: Checkout exact commit without persisted credentials
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+          fetch-depth: 1
+          sparse-checkout: |
+            render_runtime
+            native_runtime
+
+      - name: Set up supported Ruby and fixed Bundler
+        uses: ruby/setup-ruby@651ff0d62c5c79bed6d53ec518387aae20e72c1a
+        with:
+          ruby-version: '3.3'
+          bundler: '2.6.7'
+          bundler-cache: false
+
+      - name: Validate native runtime syntax, unit tests and negative controls
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "${RUNNER_ENVIRONMENT}" = "github-hosted"
+          test "${GITHUB_REPOSITORY}" = "ericson-j-santos/redmine"
+          test "$(git rev-parse HEAD)" = "${GITHUB_SHA}"
+          python3 -B -m py_compile             native_runtime/native_runtime.py             native_runtime/e2e_portability.py             native_runtime/tests/test_native_runtime.py
+          python3 -B -m unittest discover -s native_runtime/tests -p 'test_*.py' -v
+          ! grep -RniE '(^|[^[:alnum:]_])(docker|render)([^[:alnum:]_]|$)'             native_runtime/systemd/reqsys-redmine.service
+          grep -F 'ProtectSystem=strict' native_runtime/systemd/reqsys-redmine.service
+          grep -F 'ReadWritePaths=/opt/reqsys-redmine/shared' native_runtime/systemd/reqsys-redmine.service
+          sudo -n mkdir -p /opt/reqsys-redmine/current/bin /opt/reqsys-redmine/shared /etc/reqsys-redmine
+          printf '#!/bin/sh\nexit 0\n' | sudo -n tee /opt/reqsys-redmine/current/bin/reqsys-redmine-start >/dev/null
+          sudo -n chmod 0755 /opt/reqsys-redmine/current/bin/reqsys-redmine-start
+          sudo -n touch /etc/reqsys-redmine/redmine.env
+          systemd-analyze verify native_runtime/systemd/reqsys-redmine.service
+          sudo -n rm -rf /opt/reqsys-redmine /etc/reqsys-redmine
+
+      - name: Provision real thumbnail dependency on disposable hosted runner
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout --kill-after=10s 120s sudo -n apt-get -o Acquire::Retries=1 update
+          timeout --kill-after=10s 120s sudo -n apt-get -y --no-install-recommends install imagemagick
+          timeout 10s convert -version
+
+      - name: Build the exact Redmine and ReqSys integration source
+        shell: bash
+        env:
+          REQSYS_REDMINE_EPHEMERAL_E2E: '1'
+        run: |
+          set -euo pipefail
+          key="$(python3 - <<'PY'
+          import secrets
+          print(secrets.token_hex(20))
+          PY
+          )"
+          export REQSYS_REDMINE_API_KEY="${key}"
+          log="${RUNNER_TEMP}/native-source-build.log"
+          if ! timeout --kill-after=15s 420s bash render_runtime/build_redmine_6_1_4.sh >"${log}" 2>&1; then
+            sed "s/${key}/[REDACTED]/g" "${log}" | tail -n 180
+            exit 1
+          fi
+          sed "s/${key}/[REDACTED]/g" "${log}" | tail -n 80
+          test -s .runtime/redmine-6.1.5/public/reqsys-e2e/release-manifest.json
+          test -s .runtime/redmine-6.1.5/tmp/reqsys_redmine_e2e.sqlite3
+
+      - name: Execute native Linux install, restart, backup, restore and replay E2E
+        shell: bash
+        run: |
+          set -euo pipefail
+          target="${RUNNER_TEMP}/reqsys-redmine-native"
+          python3 -B native_runtime/e2e_portability.py             --source "${GITHUB_WORKSPACE}/.runtime/redmine-6.1.5"             --target-root "${target}"             --expected-sha "${GITHUB_SHA}"
+          python3 -B native_runtime/native_runtime.py verify             --target-root "${target}"             --expected-sha "${GITHUB_SHA}"
+          test "$(readlink -f "${target}/current")" = "${target}/releases/${GITHUB_SHA}"
+          printf 'NATIVE_LINUX_PORTABILITY_VALIDATED sha=%s runtime_target=provider-agnostic-linux\n' "${GITHUB_SHA}"
