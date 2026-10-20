@@ -34,6 +34,9 @@ EXCLUDED_TREE = {
     "files", "log", "tmp", "vendor/bundle",
     "config/initializers/secret_token.rb",
 }
+ASSET_AUTOCOMPILE_ON = b"config.assets.redmine_detect_update = true"
+ASSET_AUTOCOMPILE_OFF = b"config.assets.redmine_detect_update = false"
+
 START_SCRIPT = r'''#!/usr/bin/env bash
 set -Eeuo pipefail
 umask 077
@@ -199,6 +202,26 @@ def _copy_release(source: Path, staging: Path) -> None:
             raise NativeRuntimeError("NATIVE_RELEASE_SYMLINK_REJECTED")
 
 
+def _disable_runtime_asset_recompile(release: Path) -> None:
+    """Mantém public/assets imutável no runtime nativo com assets pré-compilados."""
+    path = release / "config/environments/production.rb"
+    try:
+        if path.is_symlink() or not path.is_file():
+            raise NativeRuntimeError("NATIVE_ASSET_POLICY_FILE_INVALID")
+        raw = path.read_bytes()
+    except OSError:
+        raise NativeRuntimeError("NATIVE_ASSET_POLICY_FILE_INVALID") from None
+    if raw.count(ASSET_AUTOCOMPILE_ON) != 1 or ASSET_AUTOCOMPILE_OFF in raw:
+        raise NativeRuntimeError("NATIVE_ASSET_POLICY_MISMATCH")
+    patched = raw.replace(ASSET_AUTOCOMPILE_ON, ASSET_AUTOCOMPILE_OFF)
+    try:
+        path.write_bytes(patched)
+        if path.read_bytes() != patched:
+            raise NativeRuntimeError("NATIVE_ASSET_POLICY_READBACK_FAILED")
+    except OSError:
+        raise NativeRuntimeError("NATIVE_ASSET_POLICY_WRITE_FAILED") from None
+
+
 def _ensure_state(target_root: Path, source: Path, seed_sqlite: Path | None) -> Path:
     shared = target_root / "shared"
     shared.mkdir(mode=0o700, parents=True, exist_ok=True)
@@ -301,6 +324,7 @@ def _metadata(release: Path, expected_sha: str, source_manifest: dict) -> dict:
             "secret_token": "shared/config/secret_token.rb",
             "tmp": "shared/tmp",
             "log": "shared/log",
+            "assets": "precompiled_immutable",
         },
         "redmine_version": source_manifest.get("redmine_version"),
     }
@@ -374,6 +398,7 @@ def install_release(
         raise NativeRuntimeError("NATIVE_STAGING_COLLISION")
     try:
         _copy_release(source, staging)
+        _disable_runtime_asset_recompile(staging)
         _replace_with_state_link(staging, "files", shared / "files")
         _replace_with_state_link(staging, "tmp", shared / "tmp")
         _replace_with_state_link(staging, "log", shared / "log")

@@ -27,6 +27,7 @@ def make_source(root: Path) -> tuple[Path, Path]:
         "Gemfile": 'source "https://rubygems.org"\n',
         "Gemfile.lock": "GEM\n\nPLATFORMS\n  x86_64-linux-gnu\n\nDEPENDENCIES\n\nBUNDLED WITH\n   2.6.7\n",
         "config/database.yml": "production:\n  adapter: sqlite3\n",
+        "config/environments/production.rb": "Rails.application.configure do\n  config.assets.redmine_detect_update = true\nend\n",
         "lib/redmine/version.rb": 'module Redmine; VERSION = "6.1.5"; end\n',
         "public/reqsys-e2e/evidence.json": '{"status":"passed"}\n',
         "config/initializers/secret_token.rb": 'RedmineApp::Application.config.secret_key_base = "ephemeral-test"\n',
@@ -106,12 +107,50 @@ class NativeRuntimeTests(unittest.TestCase):
             for rel in ("files", "tmp", "log", "config/initializers/secret_token.rb"):
                 self.assertTrue((release / rel).is_symlink(), rel)
             self.assertEqual((target / "shared/files/sample.txt").read_text(), "attachment\n")
+            production = (release / "config/environments/production.rb").read_text(encoding="utf-8")
+            self.assertIn("config.assets.redmine_detect_update = false", production)
+            self.assertNotIn("config.assets.redmine_detect_update = true", production)
+            self.assertIn(
+                "config.assets.redmine_detect_update = true",
+                (source / "config/environments/production.rb").read_text(encoding="utf-8"),
+            )
+            self.assertEqual(first["state_contract"]["assets"], "precompiled_immutable")
             db = sqlite3.connect(f"file:{target / 'shared/db/redmine.sqlite3'}?mode=ro", uri=True)
             try:
                 self.assertEqual(db.execute("select value from markers").fetchone(), ("persisted",))
             finally:
                 db.close()
             self.assertEqual(native.verify_install(target, SHA), first)
+
+    def test_asset_autorecompile_policy_fails_closed_on_unexpected_source(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            source, seed = make_source(root)
+            production = source / "config/environments/production.rb"
+            production.write_text(
+                "Rails.application.configure do\n"
+                "  config.assets.redmine_detect_update = ENV.fetch('REDMINE_ASSETS', 'true') == 'true'\n"
+                "end\n",
+                encoding="utf-8",
+            )
+            target = root / "target"
+            old = os.environ.get("REQSYS_NATIVE_TEST_MODE")
+            os.environ["REQSYS_NATIVE_TEST_MODE"] = "1"
+            try:
+                with self.assertRaisesRegex(native.NativeRuntimeError, "NATIVE_ASSET_POLICY_MISMATCH"):
+                    native.install_release(source, target, SHA, seed_sqlite=seed, install_bundle=False)
+            finally:
+                if old is None:
+                    os.environ.pop("REQSYS_NATIVE_TEST_MODE", None)
+                else:
+                    os.environ["REQSYS_NATIVE_TEST_MODE"] = old
+            self.assertFalse((target / "current").exists())
+            releases = target / "releases"
+            if releases.exists():
+                self.assertEqual(
+                    [path for path in releases.iterdir() if not path.name.startswith(".staging-")],
+                    [],
+                )
 
     def test_skip_bundle_is_test_only(self):
         with tempfile.TemporaryDirectory() as tmp:

@@ -64,6 +64,25 @@ continua sendo o destino recomendado; o primeiro incremento de backup/restore
 implementado aqui cobre SQLite e mantém PostgreSQL como gate explícito antes de
 promoção permanente.
 
+## Assets pré-compilados e release imutável
+
+O Redmine 6.1 recompila assets automaticamente na inicialização quando detecta
+mudanças. Isso altera `public/assets/.manifest.json` e é incompatível com o
+contrato de release imutável e com `ProtectSystem=strict` do serviço nativo.
+
+O instalador exige o contrato upstream esperado em
+`config/environments/production.rb` e troca exatamente
+`config.assets.redmine_detect_update = true` por `false` na cópia do release.
+Os assets já foram pré-compilados e exercitados pelo build real anterior à
+instalação nativa. `public/assets` continua dentro do hash da árvore da aplicação;
+nenhum arquivo de assets é simplesmente ignorado para fazer o replay passar.
+Se o upstream mudar esse contrato, a instalação falha fechada até nova revisão.
+
+Referências oficiais:
+
+- https://www.redmine.org/projects/redmine/wiki/RedmineInstall
+- https://github.com/rails/propshaft
+
 ## Persistência e backup
 
 `files`, `tmp`, `log` e o secret token gerado pelo Redmine são separados do
