@@ -15,6 +15,7 @@ import os
 from pathlib import Path
 import re
 import shutil
+import signal
 import sqlite3
 import subprocess
 import sys
@@ -53,6 +54,17 @@ exec bundle exec puma -w 0 -b "tcp://${bind}:${port}" -e production
 
 class NativeRuntimeError(ValueError):
     """Erro estável e sanitizado."""
+
+
+def validate_service_shutdown(ready: bool, terminated_by_test: bool, returncode: int | None) -> None:
+    """Mantém a causa de readiness e aceita SIGTERM só quando iniciado pelo teste."""
+    if not ready:
+        raise NativeRuntimeError("NATIVE_E2E_HTTP_NOT_READY")
+    if not terminated_by_test:
+        raise NativeRuntimeError("NATIVE_E2E_SERVICE_EXITED_BEFORE_STOP")
+    clean = (0, -signal.SIGTERM, 128 + signal.SIGTERM)
+    if type(returncode) is not int or returncode not in clean:
+        raise NativeRuntimeError("NATIVE_E2E_SERVICE_EXIT_INVALID")
 
 
 def _sha(value: object, length: int = 40) -> str:

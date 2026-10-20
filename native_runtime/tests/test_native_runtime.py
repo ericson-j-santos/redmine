@@ -185,6 +185,18 @@ class NativeRuntimeTests(unittest.TestCase):
             with self.assertRaisesRegex(native.NativeRuntimeError, "NATIVE_BACKUP_REQUIRES_QUIESCE"):
                 native.backup_sqlite(state, root / "backup", quiesced=False)
 
+    def test_service_shutdown_preserves_readiness_failure(self):
+        with self.assertRaisesRegex(native.NativeRuntimeError, "NATIVE_E2E_HTTP_NOT_READY"):
+            native.validate_service_shutdown(False, False, 99)
+
+    def test_service_shutdown_accepts_only_intentional_sigterm(self):
+        for code in (0, -15, 143):
+            native.validate_service_shutdown(True, True, code)
+        with self.assertRaisesRegex(native.NativeRuntimeError, "NATIVE_E2E_SERVICE_EXITED_BEFORE_STOP"):
+            native.validate_service_shutdown(True, False, 0)
+        with self.assertRaisesRegex(native.NativeRuntimeError, "NATIVE_E2E_SERVICE_EXIT_INVALID"):
+            native.validate_service_shutdown(True, True, 99)
+
     def test_systemd_contract_has_no_render_or_docker_dependency(self):
         unit = (Path(__file__).resolve().parents[1] / "systemd/reqsys-redmine.service").read_text(encoding="utf-8")
         lowered = unit.lower()

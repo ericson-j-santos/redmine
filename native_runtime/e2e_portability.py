@@ -11,6 +11,7 @@ import secrets
 import signal
 import sqlite3
 import subprocess
+import sys
 import time
 from urllib.error import HTTPError, URLError
 from urllib.request import ProxyHandler, build_opener
@@ -48,6 +49,8 @@ def run_runner(release: Path, env: dict[str, str], expected_issues: int) -> None
 
 
 def start_and_probe(release: Path, env: dict[str, str], log_path: Path) -> None:
+    ready = False
+    terminated_by_test = False
     with log_path.open("xb") as log:
         proc = subprocess.Popen(
             [str(release / "bin/reqsys-redmine-start")],
@@ -56,7 +59,6 @@ def start_and_probe(release: Path, env: dict[str, str], log_path: Path) -> None:
         )
         try:
             opener = build_opener(ProxyHandler({}))
-            ready = False
             url = f"http://127.0.0.1:{env['REDMINE_PORT']}/login"
             for _ in range(40):
                 if proc.poll() is not None:
@@ -69,18 +71,27 @@ def start_and_probe(release: Path, env: dict[str, str], log_path: Path) -> None:
                 except (HTTPError, URLError, TimeoutError, OSError):
                     pass
                 time.sleep(0.5)
-            if not ready:
-                raise SystemExit("NATIVE_E2E_HTTP_NOT_READY")
         finally:
             if proc.poll() is None:
+                terminated_by_test = True
                 os.killpg(proc.pid, signal.SIGTERM)
                 try:
                     proc.wait(timeout=10)
                 except subprocess.TimeoutExpired:
                     os.killpg(proc.pid, signal.SIGKILL)
                     proc.wait()
-            if proc.returncode not in (0, -signal.SIGTERM):
-                raise SystemExit("NATIVE_E2E_SERVICE_EXIT_INVALID")
+
+    try:
+        native.validate_service_shutdown(ready, terminated_by_test, proc.returncode)
+    except native.NativeRuntimeError as exc:
+        print(
+            "NATIVE_E2E_SERVICE_DIAGNOSTIC "
+            f"ready={str(ready).lower()} "
+            f"terminated_by_test={str(terminated_by_test).lower()} "
+            f"returncode={proc.returncode}",
+            file=sys.stderr,
+        )
+        raise SystemExit(str(exc)) from None
 
 
 def main() -> int:
