@@ -117,6 +117,36 @@ def validate_identity(identity: object, expected_sha: str) -> dict:
     return identity
 
 
+def _github_expected_sha(env: dict[str, str]) -> str:
+    """Aceita somente push/dispatch da DEV ou o merge testado de PR para ela."""
+    event = env.get("GITHUB_EVENT_NAME")
+    ref = env.get("GITHUB_REF")
+    if event in ("push", "workflow_dispatch"):
+        if (
+            ref != "refs/heads/" + BRANCH
+            or env.get("GITHUB_BASE_REF")
+            or env.get("GITHUB_HEAD_REF")
+        ):
+            raise IdentityError("RELEASE_CI_CONTEXT_INVALID")
+    elif event == "pull_request":
+        head_ref = env.get("GITHUB_HEAD_REF")
+        if (
+            env.get("GITHUB_BASE_REF") != BRANCH
+            or not isinstance(ref, str)
+            or re.fullmatch(r"refs/pull/[1-9][0-9]*/merge", ref) is None
+            or not isinstance(head_ref, str)
+            or not head_ref
+            or len(head_ref) > 1024
+            or any(character in head_ref for character in ("\x00", "\n", "\r"))
+        ):
+            raise IdentityError("RELEASE_CI_CONTEXT_INVALID")
+    else:
+        raise IdentityError("RELEASE_CI_CONTEXT_INVALID")
+    # Em pull_request, GITHUB_SHA identifica o merge sintético que o job testa;
+    # a comparação posterior com o Git HEAD impede validar outro checkout.
+    return _sha(env.get("GITHUB_SHA"))
+
+
 def capture_source_identity(build_root: Path, env: dict[str, str]) -> dict:
     """Compara TODOS os arquivos rastreados de render_runtime com os blobs Git."""
     build_root = _root(build_root)
@@ -136,11 +166,10 @@ def capture_source_identity(build_root: Path, env: dict[str, str]) -> dict:
             env.get("GITHUB_ACTIONS") != "true"
             or env.get("RUNNER_ENVIRONMENT") != "github-hosted"
             or env.get("GITHUB_REPOSITORY") != REPOSITORY
-            or env.get("GITHUB_REF") != "refs/heads/" + BRANCH
             or not env.get("GITHUB_WORKSPACE")
         ):
             raise IdentityError("RELEASE_CI_CONTEXT_INVALID")
-        expected_sha = _sha(env.get("GITHUB_SHA"))
+        expected_sha = _github_expected_sha(env)
         source_root = _root(Path(env["GITHUB_WORKSPACE"]))
         method = "github_hosted_verified_copy"
     try:

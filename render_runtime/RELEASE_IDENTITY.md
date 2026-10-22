@@ -16,10 +16,14 @@ e à branch DEV já existentes. Contexto parcial ou divergente falha fechado:
 não há fallback silencioso para CI. A disponibilidade real do checkout Git
 e desses metadados no build Render ainda exige execução nesse ambiente.
 
-Em GitHub Actions, somente a rota `github-hosted` do repositório e da branch
-esperados é aceita. O SHA é comparado ao checkout, e os bytes da cópia usada
-pelo build são comparados diretamente com os blobs desse checkout. A string
-do SHA, sozinha, não comprova a cópia.
+Em GitHub Actions, somente a rota `github-hosted` do repositório esperado é
+aceita. `push` e `workflow_dispatch` exigem a branch DEV exata. Em
+`pull_request`, a base precisa ser essa mesma DEV, o ref precisa ser o merge
+sintético `refs/pull/<n>/merge` e o head ref precisa estar presente. O
+`GITHUB_SHA` é comparado ao Git `HEAD`, portanto o PR prova a árvore integrada
+de base + head que foi efetivamente testada. Os bytes da cópia usada pelo build
+são comparados diretamente com os blobs desse checkout; a string do SHA,
+sozinha, não comprova a cópia.
 
 ## Evidência e manifesto
 

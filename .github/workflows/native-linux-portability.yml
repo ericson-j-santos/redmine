@@ -55,6 +55,7 @@ jobs:
           sparse-checkout: |
             render_runtime
             native_runtime
+            .github/workflows
 
       - name: Set up supported Ruby and fixed Bundler
         uses: ruby/setup-ruby@651ff0d62c5c79bed6d53ec518387aae20e72c1a
@@ -77,6 +78,7 @@ jobs:
             native_runtime/tests/test_native_runtime.py \
             native_runtime/tests/test_postgresql_backup.py
           python3 -B -m unittest discover -s native_runtime/tests -p 'test_*.py' -v
+          python3 -B -m unittest render_runtime.tests.test_release_identity -v
           ! grep -RniE '(^|[^[:alnum:]_])(docker|render)([^[:alnum:]_]|$)'             native_runtime/systemd/reqsys-redmine.service
           grep -F 'ProtectSystem=strict' native_runtime/systemd/reqsys-redmine.service
           grep -F 'ReadWritePaths=/opt/reqsys-redmine/shared' native_runtime/systemd/reqsys-redmine.service
