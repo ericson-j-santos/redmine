@@ -58,11 +58,12 @@ A instalação real usa o `Gemfile.lock` aprovado e executa Bundler em modo
 `--skip-bundle` existe apenas para os testes unitários e é recusado fora de
 `REQSYS_NATIVE_TEST_MODE=1`.
 
-O serviço usa `DATABASE_URL`, permitindo trocar SQLite por PostgreSQL sem
-reescrever o release. Para um ambiente permanente multiusuário, PostgreSQL
-continua sendo o destino recomendado; o primeiro incremento de backup/restore
-implementado aqui cobre SQLite e mantém PostgreSQL como gate explícito antes de
-promoção permanente.
+O serviço lê `DATABASE_URL`. Para um ambiente permanente multiusuário,
+PostgreSQL continua sendo o destino recomendado. Este primeiro incremento de
+backup/restore suporta PostgreSQL 16 ou superior e exige `psql`, `pg_dump` e
+`pg_restore` do mesmo major do servidor. A prova de backup descrita abaixo não
+substitui o gate separado que deve comprovar que o release Rails instalado
+contém o driver `pg`, migra e inicia contra o PostgreSQL do host permanente.
 
 ## Assets pré-compilados e release imutável
 
@@ -103,6 +104,79 @@ O backup SQLite:
 A restauração só aceita um destino novo, verifica todos os hashes e roda
 `PRAGMA integrity_check` antes de concluir.
 
+### PostgreSQL
+
+O backup PostgreSQL usa `pg_dump --format=custom --no-tablespaces` e inclui, no
+mesmo diretório privado, o dump, `shared/files` e `shared/config`. Os dois
+componentes do filesystem são obrigatórios; ausência, link ou nó especial falha
+fechado em vez de gerar um backup parcial. A aplicação e quaisquer workers
+precisam estar efetivamente parados: `--quiesced` é uma declaração do operador,
+não um mecanismo que interrompe processos. O snapshot transacional do
+PostgreSQL não cria uma transação distribuída com os anexos do filesystem.
+
+O manifesto schema 2 vincula o backup ao SHA e aos hashes do release nativo,
+registra versões do servidor/cliente, encoding, `LC_COLLATE`, `LC_CTYPE`,
+provider de locale, locale/regras ICU e versão de collation, além do perfil do
+role do banco, identidade opaca do banco sem senha, readback lógico das tabelas
+centrais do Redmine em `public` e SHA-256 de cada arquivo. A verificação
+recalcula os hashes e exige que `pg_restore --list` leia o archive. Credenciais
+são lidas de variáveis de ambiente e não são colocadas em argv, manifesto,
+recibo ou saída normal. Os clientes usam modo sem prompt e não consultam
+`~/.pgpass`.
+
+A cópia aceita somente diretórios e arquivos regulares, usa abertura sem seguir
+links e recusa FIFO, socket, device ou troca concorrente de inode. O destino do
+backup não pode ficar sob `shared/files` ou `shared/config`, e o estado
+restaurado não pode ficar dentro do próprio backup.
+
+```bash
+# Com o serviço/worker já parados e DATABASE_URL definido:
+python3 native_runtime/native_runtime.py backup-postgresql \
+  --target-root /opt/reqsys-redmine \
+  --output /opt/reqsys-redmine/shared/backups/backup-2026-10-22 \
+  --expected-sha "$RELEASE_SHA" \
+  --quiesced
+
+python3 native_runtime/native_runtime.py verify-backup \
+  --backup-root /opt/reqsys-redmine/shared/backups/backup-2026-10-22 \
+  --expected-sha "$RELEASE_SHA"
+
+# REQSYS_RESTORE_DATABASE_URL deve apontar para outro banco criado de template0:
+python3 native_runtime/native_runtime.py restore-postgresql \
+  --backup-root /opt/reqsys-redmine/shared/backups/backup-2026-10-22 \
+  --target-state /opt/reqsys-redmine-restored/shared \
+  --expected-sha "$RELEASE_SHA"
+```
+
+O restore recusa o banco de origem e qualquer divergência de major, encoding ou
+fingerprint completo de locale/collation. Tanto a origem quanto o destino devem
+usar um role login que seja dono do banco, não tenha `SUPERUSER`, `CREATEDB`,
+`CREATEROLE`, `REPLICATION` ou `BYPASSRLS` e não herde memberships efetivas
+além do `pg_database_owner` implícito.
+
+O destino deve ser criado de um `template0` confiável e permanecer quiescente.
+O preflight faz um `pg_dump --schema-only` com ACLs e default ACLs preservadas e
+exige TOC vazio; também bloqueia large objects, subscriptions, settings de
+banco/role, prepared transactions, replication slots, ACL/owner inesperado do
+banco e outras sessões cliente. Ele é repetido, com a verificação de sessões por
+último, imediatamente antes do `pg_restore`. Ainda cabe ao operador impedir uma
+nova conexão depois desse último check.
+
+O restore também recusa `target-state` preexistente. Ele não usa `--clean`,
+`--create`, roles, ownership, ACLs ou tablespaces da origem. Antes de alterar o
+banco, compara novamente o hash do manifesto e todos os hashes da cópia em
+staging. Após `pg_restore --single-transaction`, compara o readback `public.*` e
+os anexos/config, remove a cópia temporária do dump e só então publica o estado
+local com um recibo. Banco e filesystem não têm commit atômico comum: se houver
+falha depois do commit do banco, o destino deve ser descartado e recriado antes
+de nova tentativa.
+
+SHA-256 detecta corrupção ou alteração sem recomputação do manifesto; não é uma
+assinatura contra alguém capaz de substituir dados e manifesto. O hash do
+manifesto precisa ser preservado em evidência externa. Backups contêm banco e
+configuração sensível, usam permissões privadas e não podem ser publicados como
+artifact ou enviados ao Git.
+
 ## systemd
 
 `systemd/reqsys-redmine.service` é uma referência de serviço nativo. Ele não usa
@@ -129,11 +203,19 @@ pelo GitHub:
 8. alteração controlada do backup, que deve ser detectada;
 9. restauração em diretório isolado;
 10. replay da instalação sem duplicar release;
-11. SHA incorreto recusado antes de criar o destino.
+11. SHA incorreto recusado antes de criar o destino;
+12. backup PostgreSQL custom de banco, anexos e configuração;
+13. adulteração do dump e SHA incorreto recusados antes do restore;
+14. restore em dois bancos vazios, readback independente de contagens e valores,
+    inclusive com `search_path` adversarial;
+15. banco não vazio e replay no mesmo destino recusados sem alterar o primeiro
+    restore.
 
-Esse E2E comprova a portabilidade no runner Linux do GitHub. Não comprova
-systemd em um host permanente, endpoint público, PostgreSQL persistente, backup
-PostgreSQL nem a disponibilidade física do PC24x7.
+O PostgreSQL do CI é uma fixture efêmera; nenhum backup é publicado como
+artifact. Esse E2E comprova a portabilidade e o contrato de backup/restore no
+runner Linux do GitHub. Não comprova systemd em host permanente, endpoint
+público, PostgreSQL persistente, boot Rails usando PostgreSQL, segredos do host
+nem a disponibilidade física do PC24x7.
 
 ## OCI Always Free
 

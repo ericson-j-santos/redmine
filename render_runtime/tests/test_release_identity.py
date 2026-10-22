@@ -100,11 +100,21 @@ class ReleaseIdentityTests(unittest.TestCase):
     def ci_env(self):
         return {
             "GITHUB_ACTIONS": "true",
+            "GITHUB_EVENT_NAME": "push",
             "RUNNER_ENVIRONMENT": "github-hosted",
             "GITHUB_REPOSITORY": REPOSITORY,
             "GITHUB_REF": "refs/heads/" + BRANCH,
             "GITHUB_WORKSPACE": str(self.source),
             "GITHUB_SHA": self.sha,
+        }
+
+    def pr_env(self):
+        return {
+            **self.ci_env(),
+            "GITHUB_EVENT_NAME": "pull_request",
+            "GITHUB_REF": "refs/pull/17/merge",
+            "GITHUB_BASE_REF": BRANCH,
+            "GITHUB_HEAD_REF": "fix/native-backup",
         }
 
     def copy_source(self):
@@ -209,6 +219,60 @@ class ReleaseIdentityTests(unittest.TestCase):
         )
         self.assertEqual(target.capture_source_identity(copied, self.ci_env()), identity)
 
+    def test_pull_request_requires_exact_dev_base_merge_ref_and_checkout_sha(self):
+        copied = self.copy_source()
+        identity = target.capture_source_identity(copied, self.pr_env())
+        self.assertEqual(identity["source_sha"], self.sha)
+        self.assertEqual(identity["provenance_method"], "github_hosted_verified_copy")
+        for field, bad in (
+            ("GITHUB_EVENT_NAME", "pull_request_target"),
+            ("GITHUB_BASE_REF", "main"),
+            ("GITHUB_BASE_REF", ""),
+            ("GITHUB_REF", "refs/heads/" + BRANCH),
+            ("GITHUB_REF", "refs/pull/0/merge"),
+            ("GITHUB_REF", "refs/pull/17/head"),
+            ("GITHUB_HEAD_REF", ""),
+            ("GITHUB_HEAD_REF", "bad\nhead"),
+        ):
+            with self.subTest(field=field, bad=bad):
+                with self.assertRaisesRegex(
+                    target.IdentityError,
+                    "^RELEASE_CI_CONTEXT_INVALID$",
+                ):
+                    target.capture_source_identity(copied, {**self.pr_env(), field: bad})
+        with self.assertRaisesRegex(target.IdentityError, "^RELEASE_CHECKOUT_MISMATCH$"):
+            target.capture_source_identity(
+                copied,
+                {**self.pr_env(), "GITHUB_SHA": "0" * 40},
+            )
+        for field in ("GITHUB_BASE_REF", "GITHUB_HEAD_REF"):
+            with self.subTest(push_hybrid_field=field), self.assertRaisesRegex(
+                target.IdentityError,
+                "^RELEASE_CI_CONTEXT_INVALID$",
+            ):
+                target.capture_source_identity(
+                    copied,
+                    {**self.ci_env(), field: "unexpected-pr-metadata"},
+                )
+        dispatch = {**self.ci_env(), "GITHUB_EVENT_NAME": "workflow_dispatch"}
+        self.assertEqual(target.capture_source_identity(copied, dispatch), identity)
+
+    def test_workflows_propagate_event_and_execute_pull_request_regression(self):
+        root = Path(__file__).resolve().parents[2]
+        lint = (root / ".github/workflows/linters.yml").read_text(encoding="utf-8")
+        native = (root / ".github/workflows/native-linux-portability.yml").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn('"GITHUB_EVENT_NAME": os.environ["GITHUB_EVENT_NAME"]', lint)
+        self.assertIn(
+            "python3 -B -m unittest render_runtime.tests.test_release_identity -v",
+            native,
+        )
+        py_compile_block = native.split("python3 -B -m py_compile", 1)[1].split(
+            "python3 -B -m unittest", 1
+        )[0]
+        self.assertNotIn("render_runtime/", py_compile_block)
+
     def test_partial_or_wrong_render_context_cannot_fall_back_to_ci(self):
         for field, bad in (
             ("RENDER", "false"),
@@ -227,6 +291,7 @@ class ReleaseIdentityTests(unittest.TestCase):
     def test_ci_context_requires_hosted_runner_repository_branch_and_workspace(self):
         for field, bad in (
             ("GITHUB_ACTIONS", "false"),
+            ("GITHUB_EVENT_NAME", "schedule"),
             ("RUNNER_ENVIRONMENT", "self-hosted"),
             ("GITHUB_REPOSITORY", "fixture/wrong-repository"),
             ("GITHUB_REF", "refs/heads/main"),
