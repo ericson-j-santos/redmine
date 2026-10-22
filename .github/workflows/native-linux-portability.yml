@@ -8,6 +8,13 @@ on:
       - 'native_runtime/**'
       - 'render_runtime/**'
       - '.github/workflows/native-linux-portability.yml'
+  pull_request:
+    branches:
+      - dev/reqsys-e2e-redmine-6.1.4-20260928
+    paths:
+      - 'native_runtime/**'
+      - 'render_runtime/**'
+      - '.github/workflows/native-linux-portability.yml'
   workflow_dispatch:
 
 permissions:
@@ -21,7 +28,22 @@ jobs:
   native-linux-portability:
     name: Native Linux portable runtime E2E
     runs-on: ubuntu-24.04
-    timeout-minutes: 18
+    timeout-minutes: 30
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: postgres
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: native-ci-admin-only-password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
 
     steps:
       - name: Checkout exact commit without persisted credentials
@@ -48,7 +70,12 @@ jobs:
           test "${RUNNER_ENVIRONMENT}" = "github-hosted"
           test "${GITHUB_REPOSITORY}" = "ericson-j-santos/redmine"
           test "$(git rev-parse HEAD)" = "${GITHUB_SHA}"
-          python3 -B -m py_compile             native_runtime/native_runtime.py             native_runtime/e2e_portability.py             native_runtime/tests/test_native_runtime.py
+          python3 -B -m py_compile \
+            native_runtime/native_runtime.py \
+            native_runtime/e2e_portability.py \
+            native_runtime/e2e_postgresql_backup.py \
+            native_runtime/tests/test_native_runtime.py \
+            native_runtime/tests/test_postgresql_backup.py
           python3 -B -m unittest discover -s native_runtime/tests -p 'test_*.py' -v
           ! grep -RniE '(^|[^[:alnum:]_])(docker|render)([^[:alnum:]_]|$)'             native_runtime/systemd/reqsys-redmine.service
           grep -F 'ProtectSystem=strict' native_runtime/systemd/reqsys-redmine.service
@@ -60,13 +87,33 @@ jobs:
           systemd-analyze verify native_runtime/systemd/reqsys-redmine.service
           sudo -n rm -rf /opt/reqsys-redmine /etc/reqsys-redmine
 
-      - name: Provision real thumbnail dependency on disposable hosted runner
+      - name: Provision real thumbnail and PostgreSQL client dependencies
         shell: bash
         run: |
           set -euo pipefail
           timeout --kill-after=10s 120s sudo -n apt-get -o Acquire::Retries=1 update
-          timeout --kill-after=10s 120s sudo -n apt-get -y --no-install-recommends install imagemagick
+          timeout --kill-after=10s 120s sudo -n apt-get -y --no-install-recommends install \
+            imagemagick postgresql-client
           timeout 10s convert -version
+          pg_dump --version | grep -E ' 16([.]|$)'
+          pg_restore --version | grep -E ' 16([.]|$)'
+
+      - name: Bootstrap restricted PostgreSQL role and pristine databases
+        shell: bash
+        env:
+          PGPASSWORD: native-ci-admin-only-password
+        run: |
+          set -euo pipefail
+          psql --host=127.0.0.1 --username=postgres --dbname=postgres \
+            --no-password --set=ON_ERROR_STOP=1 --command \
+            "CREATE ROLE reqsys_native LOGIN PASSWORD 'native-ci-only-password' NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS"
+          for database in reqsys_native_source reqsys_native_restore reqsys_native_replay; do
+            createdb --host=127.0.0.1 --username=postgres --no-password \
+              --template=template0 --owner=reqsys_native "${database}"
+          done
+          test "$(psql --host=127.0.0.1 --username=postgres --dbname=postgres \
+            --no-password --tuples-only --no-align --set=ON_ERROR_STOP=1 --command \
+            "SELECT NOT rolsuper AND NOT rolcreatedb AND NOT rolcreaterole AND NOT rolreplication AND NOT rolbypassrls FROM pg_roles WHERE rolname = 'reqsys_native'")" = "t"
 
       - name: Build the exact Redmine and ReqSys integration source
         shell: bash
@@ -98,3 +145,32 @@ jobs:
           python3 -B native_runtime/native_runtime.py verify             --target-root "${target}"             --expected-sha "${GITHUB_SHA}"
           test "$(readlink -f "${target}/current")" = "${target}/releases/${GITHUB_SHA}"
           printf 'NATIVE_LINUX_PORTABILITY_VALIDATED sha=%s runtime_target=provider-agnostic-linux\n' "${GITHUB_SHA}"
+
+      - name: Execute PostgreSQL backup, tamper, restore, readback and replay E2E
+        shell: bash
+        env:
+          DATABASE_URL: postgresql://reqsys_native:native-ci-only-password@127.0.0.1:5432/reqsys_native_source
+          REQSYS_RESTORE_DATABASE_URL: postgresql://reqsys_native:native-ci-only-password@127.0.0.1:5432/reqsys_native_restore
+          REQSYS_REPLAY_DATABASE_URL: postgresql://reqsys_native:native-ci-only-password@127.0.0.1:5432/reqsys_native_replay
+        run: |
+          set -euo pipefail
+          python3 -B native_runtime/e2e_postgresql_backup.py \
+            --target-root "${RUNNER_TEMP}/reqsys-redmine-native" \
+            --expected-sha "${GITHUB_SHA}"
+
+      - name: Remove disposable PostgreSQL evidence
+        if: always()
+        shell: bash
+        env:
+          PGPASSWORD: native-ci-admin-only-password
+        run: |
+          set +e
+          dropdb --if-exists --host=127.0.0.1 --username=postgres --no-password reqsys_native_source
+          dropdb --if-exists --host=127.0.0.1 --username=postgres --no-password reqsys_native_restore
+          dropdb --if-exists --host=127.0.0.1 --username=postgres --no-password reqsys_native_replay
+          rm -rf -- \
+            "${RUNNER_TEMP}/reqsys-redmine-native/shared/backups/e2e-postgresql-backup" \
+            "${RUNNER_TEMP}/postgresql-restored-state" \
+            "${RUNNER_TEMP}/postgresql-replayed-state" \
+            "${RUNNER_TEMP}/postgresql-nonempty-db-state" \
+            "${RUNNER_TEMP}/postgresql-wrong-sha-state"

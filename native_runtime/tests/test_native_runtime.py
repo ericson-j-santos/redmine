@@ -6,6 +6,7 @@ from pathlib import Path
 import sqlite3
 import tempfile
 import unittest
+from unittest import mock
 
 MODULE_PATH = Path(__file__).resolve().parents[1] / "native_runtime.py"
 spec = importlib.util.spec_from_file_location("native_runtime", MODULE_PATH)
@@ -262,6 +263,106 @@ class NativeRuntimeTests(unittest.TestCase):
             sqlite3.connect(state / "db/redmine.sqlite3").close()
             with self.assertRaisesRegex(native.NativeRuntimeError, "NATIVE_BACKUP_REQUIRES_QUIESCE"):
                 native.backup_sqlite(state, root / "backup", quiesced=False)
+
+    def test_sqlite_backup_rejects_special_nodes_and_recursive_paths(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            state = root / "state"
+            (state / "db").mkdir(parents=True)
+            (state / "files").mkdir()
+            (state / "config").mkdir()
+            sqlite3.connect(state / "db/redmine.sqlite3").close()
+            (state / "files/sample.txt").write_text("attachment\n", encoding="utf-8")
+
+            blocked_fifo = state / "files/blocked-fifo"
+            os.mkfifo(blocked_fifo)
+            with self.assertRaisesRegex(native.NativeRuntimeError, "NATIVE_STATE_NODE_INVALID"):
+                native.backup_sqlite(state, root / "special-backup", quiesced=True)
+            with self.assertRaisesRegex(native.NativeRuntimeError, "NATIVE_BACKUP_NODE_INVALID"):
+                native._backup_hashes(state)
+            blocked_fifo.unlink()
+
+            for component in ("files", "config"):
+                with self.subTest(component=component):
+                    parent = state / component / "nested"
+                    parent.mkdir()
+                    output = parent / "backup"
+                    with self.assertRaisesRegex(
+                        native.NativeRuntimeError, "NATIVE_BACKUP_OUTPUT_RECURSIVE"
+                    ):
+                        native.backup_sqlite(state, output, quiesced=True)
+                    self.assertFalse(output.exists())
+
+            backup = root / "backup"
+            native.backup_sqlite(state, backup, quiesced=True)
+
+            original_copy = native._copy_backup_component
+            original_attachment = (backup / "files/sample.txt").read_bytes()
+            changed = False
+
+            def alter_after_initial_verify(
+                source: Path,
+                destination: Path,
+                *,
+                allow_missing: bool = False,
+            ) -> None:
+                nonlocal changed
+                if source == backup / "files" and not changed:
+                    with (source / "sample.txt").open("ab") as stream:
+                        stream.write(b"changed-after-verify")
+                    changed = True
+                original_copy(source, destination, allow_missing=allow_missing)
+
+            raced_target = root / "raced-restored"
+            with mock.patch.object(
+                native, "_copy_backup_component", side_effect=alter_after_initial_verify
+            ), self.assertRaisesRegex(
+                native.NativeRuntimeError, "NATIVE_SQLITE_RESTORE_STAGING_HASH_MISMATCH"
+            ):
+                native.restore_sqlite(backup, raced_target)
+            self.assertTrue(changed)
+            self.assertFalse(raced_target.exists())
+            (backup / "files/sample.txt").write_bytes(original_attachment)
+            native.verify_backup(backup)
+
+            collision_target = root / "collision-restored"
+            collision_staging = root / f".collision-restored.staging-{os.getpid()}"
+            collision_staging.mkdir()
+            sentinel = collision_staging / "must-survive.txt"
+            sentinel.write_text("preserve collision\n", encoding="utf-8")
+            with self.assertRaisesRegex(
+                native.NativeRuntimeError, "NATIVE_RESTORE_STAGING_COLLISION"
+            ):
+                native.restore_sqlite(backup, collision_target)
+            self.assertEqual(sentinel.read_text(encoding="utf-8"), "preserve collision\n")
+
+            race_target = root / "mkdir-race-restored"
+            race_staging = root / f".{race_target.name}.staging-{os.getpid()}"
+            race_sentinel = race_staging / "must-survive-race.txt"
+            original_mkdir = Path.mkdir
+
+            def create_competing_staging(path, *args, **kwargs):
+                if path == race_staging:
+                    original_mkdir(path, *args, **kwargs)
+                    race_sentinel.write_text("preserve race\n", encoding="utf-8")
+                    raise FileExistsError(path)
+                return original_mkdir(path, *args, **kwargs)
+
+            with mock.patch.object(
+                Path,
+                "mkdir",
+                autospec=True,
+                side_effect=create_competing_staging,
+            ), self.assertRaises(FileExistsError):
+                native.restore_sqlite(backup, race_target)
+            self.assertEqual(race_sentinel.read_text(encoding="utf-8"), "preserve race\n")
+
+            inside_backup = backup / "restored-state"
+            with self.assertRaisesRegex(
+                native.NativeRuntimeError, "NATIVE_RESTORE_TARGET_INSIDE_BACKUP"
+            ):
+                native.restore_sqlite(backup, inside_backup)
+            self.assertFalse(inside_backup.exists())
 
     def test_service_shutdown_preserves_readiness_failure(self):
         with self.assertRaisesRegex(native.NativeRuntimeError, "NATIVE_E2E_HTTP_NOT_READY"):
